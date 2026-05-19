@@ -40,13 +40,54 @@ import {
 // ============================================================================
 
 /**
- * Convert error to standard Error with fallback message
+ * Convert error to standard Error with full Supabase error details preserved
  */
 function toServiceError(error: unknown, fallbackMessage: string): Error {
+  const parts: string[] = []
+
+  // Extract message, code, details, hint from error
+  let message: string | null = null
+  let code: string | null = null
+  let details: string | null = null
+  let hint: string | null = null
+
   if (error instanceof Error) {
-    return new Error(error.message || fallbackMessage)
+    message = error.message || null
+    // Try to extract Supabase-specific fields from Error instance
+    const errRecord = error as unknown as Record<string, unknown>
+    if (typeof errRecord.code === 'string') code = errRecord.code
+    if (typeof errRecord.details === 'string') details = errRecord.details
+    if (typeof errRecord.hint === 'string') hint = errRecord.hint
+  } else if (typeof error === 'object' && error !== null) {
+    const errRecord = error as Record<string, unknown>
+    if (typeof errRecord.message === 'string') message = errRecord.message
+    if (typeof errRecord.code === 'string') code = errRecord.code
+    if (typeof errRecord.details === 'string') details = errRecord.details
+    if (typeof errRecord.hint === 'string') hint = errRecord.hint
+  } else if (typeof error === 'string') {
+    message = error
   }
-  return new Error(fallbackMessage)
+
+  // Build primary message
+  const primaryMessage = message || fallbackMessage
+  parts.push(primaryMessage)
+
+  // Append code if present
+  if (code) {
+    parts.push(`[code: ${code}]`)
+  }
+
+  // Append details if present
+  if (details) {
+    parts.push(`[details: ${details}]`)
+  }
+
+  // Append hint if present
+  if (hint) {
+    parts.push(`[hint: ${hint}]`)
+  }
+
+  return new Error(parts.join(' '))
 }
 
 /**
