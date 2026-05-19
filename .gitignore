@@ -53,3 +53,7 @@ supabase/.temp/rest-version
 supabase/.temp/storage-migration
 supabase/.temp/storage-version
 supabase/.temp/cli-latest
+
+# Supabase CLI local temp files
+supabase/.temp/
+
