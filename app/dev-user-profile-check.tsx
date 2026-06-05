@@ -110,7 +110,7 @@ export default function DevUserProfileCheck() {
           </View>
         )}
 
-        {result && (
+        {result !== null && (
           <View style={styles.resultContainer}>
             <Text style={styles.resultTitle}>Result:</Text>
             <ScrollView horizontal style={styles.resultScroll}>
