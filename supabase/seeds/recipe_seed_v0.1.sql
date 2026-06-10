@@ -289,7 +289,7 @@ select
   v.title,
   v.body,
   v.estimated_minutes,
-  v.timer_seconds,
+  v.timer_seconds::integer,
   v.ingredient_keys,
   v.equipment_keys,
   v.tips
