@@ -15,22 +15,28 @@ import type {
   SaveKitchenEquipmentInput,
   SavePantryItemsInput,
   CuisineKey,
+  CuisinePreferenceKey,
   MealStyleKey,
-  DietTagKey,
-  DislikedIngredientKey,
+  DietaryRuleKey,
+  AvoidIngredientKey,
   AllergenKey,
   KitchenEquipmentKey,
   PantryItemKey,
+  CookTimePreferenceKey,
+  CookingSkillKey,
 } from '@/types/profile'
 import {
   PORTION_SIZE_KEYS,
   SPICE_LEVEL_KEYS,
   SALTINESS_KEYS,
-  CUISINE_KEYS,
+  CUISINE_PREFERENCE_KEYS,
   MEAL_STYLE_KEYS,
-  DIET_TAG_KEYS,
-  DISLIKED_INGREDIENT_KEYS,
+  DIETARY_RULE_KEYS,
   ALLERGEN_KEYS,
+  COOK_TIME_PREFERENCE_KEYS,
+  DEFAULT_COOK_TIME_PREFERENCE_KEY,
+  COOKING_SKILL_KEYS,
+  DEFAULT_COOKING_SKILL_KEY,
   KITCHEN_EQUIPMENT_KEYS,
   PANTRY_ITEM_KEYS,
 } from '@/types/profile'
@@ -121,12 +127,74 @@ function validateKeyArray<T extends string>(
 /**
  * Normalize cuisine preferences with no_preference mutual exclusion
  */
-function normalizeCuisinePreferences(values: CuisineKey[]): CuisineKey[] {
-  const normalized = normalizeUniqueArray(values)
-  if (normalized.includes('no_preference')) {
-    return ['no_preference']
+function normalizeCuisinePreferenceKey(value: CuisineKey): CuisinePreferenceKey | null {
+  if (value === 'chinese' || value === 'chinese_home') {
+    return 'chinese_home'
   }
-  return validateKeyArray(normalized, new Set(CUISINE_KEYS), 'cuisinePreferences')
+
+  if (
+    value === 'western'
+    || value === 'italian'
+    || value === 'mexican'
+    || value === 'western_simple'
+  ) {
+    return 'western_simple'
+  }
+
+  if (
+    value === 'shandong'
+    || value === 'sichuan'
+    || value === 'cantonese'
+    || value === 'huaiyang'
+  ) {
+    return value
+  }
+
+  return null
+}
+
+function normalizeCuisinePreferences(values: CuisineKey[]): CuisinePreferenceKey[] {
+  const normalized = normalizeUniqueArray(values)
+  const mapped = normalized
+    .map(normalizeCuisinePreferenceKey)
+    .filter((value): value is CuisinePreferenceKey => value !== null)
+  const deduped = validateKeyArray(mapped, new Set(CUISINE_PREFERENCE_KEYS), 'cuisinePreferences')
+  const traditionalCount = deduped.filter((value) => (
+    value === 'shandong'
+    || value === 'sichuan'
+    || value === 'cantonese'
+    || value === 'huaiyang'
+  )).length
+
+  if (traditionalCount > 2) {
+    throw new Error('cuisinePreferences can include at most 2 traditional Chinese cuisines')
+  }
+
+  return deduped
+}
+
+function normalizeDietaryRules(values: DietaryRuleKey[]): DietaryRuleKey[] {
+  const normalized = validateKeyArray(values, new Set(DIETARY_RULE_KEYS), 'dietaryRules')
+
+  if (normalized.length === 0 || normalized.includes('none')) {
+    return ['none']
+  }
+
+  return normalized
+}
+
+function normalizeAvoidIngredientKeys(values: AvoidIngredientKey[]): AvoidIngredientKey[] {
+  const normalized = normalizeUniqueArray(values)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+
+  for (const value of normalized) {
+    if (!/^[a-z][a-z0-9_]*$/.test(value)) {
+      throw new Error(`Invalid value "${value}" for avoidIngredientKeys`)
+    }
+  }
+
+  return normalized
 }
 
 /**
@@ -168,22 +236,31 @@ function mapUserPreferencesRow(row: {
   diet_tags: string[]
   disliked_ingredient_keys: string[]
   allergen_keys: string[]
+  cook_time_preference_key?: string | null
+  cooking_skill?: string | null
   created_at: string
   updated_at: string
 }): UserPreferences {
+  const dietaryRules = row.diet_tags as DietaryRuleKey[]
+  const avoidIngredientKeys = row.disliked_ingredient_keys as AvoidIngredientKey[]
+
   return {
     id: row.id,
     userId: row.user_id,
     portionSize: row.portion_size as UserPreferences['portionSize'],
     spiceLevel: row.spice_level as UserPreferences['spiceLevel'],
     saltiness: row.saltiness as UserPreferences['saltiness'],
-    cuisinePreferences: row.cuisine_preferences as CuisineKey[],
+    cuisinePreferences: row.cuisine_preferences as CuisinePreferenceKey[],
     mealStylePreferences: row.meal_style_preferences as MealStyleKey[],
-    dietTags: row.diet_tags as DietTagKey[],
-    dislikedIngredientKeys: row.disliked_ingredient_keys as DislikedIngredientKey[],
+    dietaryRules,
+    avoidIngredientKeys,
     allergenKeys: row.allergen_keys as AllergenKey[],
+    cookTimePreferenceKey: (row.cook_time_preference_key ?? DEFAULT_COOK_TIME_PREFERENCE_KEY) as CookTimePreferenceKey,
+    cookingSkill: (row.cooking_skill ?? DEFAULT_COOKING_SKILL_KEY) as CookingSkillKey,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+    dietTags: dietaryRules,
+    dislikedIngredientKeys: avoidIngredientKeys,
   }
 }
 
@@ -410,6 +487,16 @@ export async function saveUserPreferences(input: SaveUserPreferencesInput): Prom
       throw new Error(`Invalid saltiness: ${input.saltiness}`)
     }
   }
+  if (input.cookTimePreferenceKey !== undefined && input.cookTimePreferenceKey !== null) {
+    if (!COOK_TIME_PREFERENCE_KEYS.includes(input.cookTimePreferenceKey)) {
+      throw new Error(`Invalid cookTimePreferenceKey: ${input.cookTimePreferenceKey}`)
+    }
+  }
+  if (input.cookingSkill !== undefined && input.cookingSkill !== null) {
+    if (!COOKING_SKILL_KEYS.includes(input.cookingSkill)) {
+      throw new Error(`Invalid cookingSkill: ${input.cookingSkill}`)
+    }
+  }
 
   // Validate and normalize array fields
   const normalizedCuisinePreferences = normalizeCuisinePreferences(input.cuisinePreferences ?? [])
@@ -418,21 +505,19 @@ export async function saveUserPreferences(input: SaveUserPreferencesInput): Prom
     new Set(MEAL_STYLE_KEYS),
     'mealStylePreferences'
   )
-  const normalizedDietTags = validateKeyArray(
-    input.dietTags ?? [],
-    new Set(DIET_TAG_KEYS),
-    'dietTags'
+  const normalizedDietaryRules = normalizeDietaryRules(
+    input.dietaryRules ?? input.dietTags ?? []
   )
-  const normalizedDislikedIngredientKeys = validateKeyArray(
-    input.dislikedIngredientKeys ?? [],
-    new Set(DISLIKED_INGREDIENT_KEYS),
-    'dislikedIngredientKeys'
+  const normalizedAvoidIngredientKeys = normalizeAvoidIngredientKeys(
+    input.avoidIngredientKeys ?? input.dislikedIngredientKeys ?? []
   )
   const normalizedAllergenKeys = validateKeyArray(
     input.allergenKeys ?? [],
     new Set(ALLERGEN_KEYS),
     'allergenKeys'
   )
+  const cookTimePreferenceKey = input.cookTimePreferenceKey ?? DEFAULT_COOK_TIME_PREFERENCE_KEY
+  const cookingSkill = input.cookingSkill ?? DEFAULT_COOKING_SKILL_KEY
 
   // Build snake_case payload
   const payload = {
@@ -442,9 +527,11 @@ export async function saveUserPreferences(input: SaveUserPreferencesInput): Prom
     saltiness: input.saltiness ?? null,
     cuisine_preferences: normalizedCuisinePreferences,
     meal_style_preferences: normalizedMealStylePreferences,
-    diet_tags: normalizedDietTags,
-    disliked_ingredient_keys: normalizedDislikedIngredientKeys,
+    diet_tags: normalizedDietaryRules,
+    disliked_ingredient_keys: normalizedAvoidIngredientKeys,
     allergen_keys: normalizedAllergenKeys,
+    cook_time_preference_key: cookTimePreferenceKey,
+    cooking_skill: cookingSkill,
   }
 
   const { data: updated, error: upsertError } = await supabase

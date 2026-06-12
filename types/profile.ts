@@ -1,5 +1,5 @@
 // types/profile.ts
-// User Profile / Onboarding Foundation v0.1 - Domain Types
+// User Profile / Onboarding Foundation v0.2 - Domain Types
 // 职责：定义业务层类型，不依赖 types/index.ts
 
 // ============================================================================
@@ -12,7 +12,15 @@ export type SpiceLevelKey = 'none' | 'mild' | 'medium' | 'hot'
 
 export type SaltinessKey = 'light' | 'normal' | 'salty'
 
-export type CuisineKey =
+export type CuisinePreferenceKey =
+  | 'chinese_home'
+  | 'western_simple'
+  | 'shandong'
+  | 'sichuan'
+  | 'cantonese'
+  | 'huaiyang'
+
+export type LegacyCuisineKey =
   | 'chinese'
   | 'western'
   | 'korean'
@@ -21,6 +29,8 @@ export type CuisineKey =
   | 'mexican'
   | 'southeast_asian'
   | 'no_preference'
+
+export type CuisineKey = CuisinePreferenceKey | LegacyCuisineKey
 
 export type MealStyleKey =
   | 'quick_easy'
@@ -32,29 +42,17 @@ export type MealStyleKey =
   | 'comfort_food'
   | 'meal_prep'
 
-export type DietTagKey =
+export type DietaryRuleKey =
+  | 'none'
   | 'vegetarian'
   | 'vegan'
-  | 'no_pork'
-  | 'no_beef'
-  | 'no_lamb'
-  | 'no_seafood'
-  | 'no_alcohol'
+  | 'halal_friendly'
 
-export type DislikedIngredientKey =
-  | 'cilantro'
-  | 'green_onion'
-  | 'garlic'
-  | 'onion'
-  | 'ginger'
-  | 'mushroom'
-  | 'eggplant'
-  | 'tomato'
-  | 'egg'
-  | 'tofu'
-  | 'cheese'
-  | 'seafood'
-  | 'spicy_food'
+export type DietTagKey = DietaryRuleKey
+
+export type AvoidIngredientKey = string
+
+export type DislikedIngredientKey = AvoidIngredientKey
 
 export type AllergenKey =
   | 'peanut'
@@ -67,21 +65,48 @@ export type AllergenKey =
   | 'wheat'
   | 'sesame'
 
+export const COOK_TIME_PREFERENCE_KEYS = [
+  'under_15',
+  'under_30',
+  'under_45',
+  'over_45_ok',
+] as const
+
+export type CookTimePreferenceKey = (typeof COOK_TIME_PREFERENCE_KEYS)[number]
+
+/**
+ * @deprecated Use CookTimePreferenceKey for User Preference v0.2.
+ */
+export type LegacyMaxCookTimeMinutes = 15 | 30 | 45 | 60
+
+export type CookingSkillKey = 'beginner' | 'normal' | 'confident'
+
 export type KitchenEquipmentKey =
+  | 'knife'
+  | 'cutting_board'
+  | 'bowl'
+  | 'plate'
+  | 'spoon'
+  | 'chopsticks_or_fork'
+  | 'spatula'
+  | 'basic_storage_container'
+  | 'stove_or_hotplate'
+  | 'frying_pan_or_wok'
   | 'pot'
+  | 'rice_cooker'
+  | 'microwave'
+  | 'oven'
+  | 'air_fryer'
+  | 'electric_kettle'
+  | 'steamer'
+  | 'blender'
+  | 'pressure_cooker'
+  | 'toaster'
+  // Legacy recipe/equipment keys kept for Recipe Foundation v0.1 compatibility.
   | 'pan'
   | 'wok'
   | 'saucepan'
   | 'baking_tray'
-  | 'rice_cooker'
-  | 'air_fryer'
-  | 'oven'
-  | 'microwave'
-  | 'blender'
-  | 'toaster'
-  | 'knife'
-  | 'cutting_board'
-  | 'spatula'
   | 'ladle'
   | 'tongs'
   | 'mixing_bowl'
@@ -110,6 +135,7 @@ export type PantryItemKey =
   | 'dark_soy_sauce'
   | 'vinegar'
   | 'oyster_sauce'
+  | 'cooking_wine'
   | 'ketchup'
   | 'mayonnaise'
   | 'mustard'
@@ -124,6 +150,8 @@ export type PantryItemKey =
   | 'gochujang'
   | 'miso'
   | 'chili_crisp'
+  | 'pasta_sauce'
+  | 'curry_blocks'
   | 'rice'
   | 'pasta'
   | 'noodles'
@@ -160,13 +188,24 @@ export interface UserPreferences {
   portionSize: PortionSizeKey | null
   spiceLevel: SpiceLevelKey | null
   saltiness: SaltinessKey | null
-  cuisinePreferences: CuisineKey[]
+  cuisinePreferences: CuisinePreferenceKey[]
   mealStylePreferences: MealStyleKey[]
-  dietTags: DietTagKey[]
-  dislikedIngredientKeys: DislikedIngredientKey[]
+  dietaryRules: DietaryRuleKey[]
+  avoidIngredientKeys: AvoidIngredientKey[]
   allergenKeys: AllergenKey[]
+  cookTimePreferenceKey: CookTimePreferenceKey
+  cookingSkill: CookingSkillKey
   createdAt: Date
   updatedAt: Date
+
+  /**
+   * @deprecated Use dietaryRules.
+   */
+  dietTags?: DietaryRuleKey[]
+  /**
+   * @deprecated Use avoidIngredientKeys.
+   */
+  dislikedIngredientKeys?: AvoidIngredientKey[]
 }
 
 export interface KitchenEquipmentItem {
@@ -209,9 +248,20 @@ export interface SaveUserPreferencesInput {
   saltiness?: SaltinessKey | null
   cuisinePreferences: CuisineKey[]
   mealStylePreferences: MealStyleKey[]
-  dietTags: DietTagKey[]
-  dislikedIngredientKeys: DislikedIngredientKey[]
+  dietaryRules?: DietaryRuleKey[]
+  avoidIngredientKeys?: AvoidIngredientKey[]
   allergenKeys: AllergenKey[]
+  cookTimePreferenceKey?: CookTimePreferenceKey | null
+  cookingSkill?: CookingSkillKey | null
+
+  /**
+   * @deprecated Use dietaryRules.
+   */
+  dietTags?: DietaryRuleKey[]
+  /**
+   * @deprecated Use avoidIngredientKeys.
+   */
+  dislikedIngredientKeys?: AvoidIngredientKey[]
 }
 
 export interface SaveKitchenEquipmentInput {
@@ -232,12 +282,32 @@ export interface ProfileOption<T extends string> {
   enLabel: string
 }
 
+export interface ProfileOptionWithDescription<T extends string> extends ProfileOption<T> {
+  zhDescription: string
+  enDescription: string
+}
+
 export interface ScoredProfileOption<T extends string> extends ProfileOption<T> {
   score: number
 }
 
+export interface CookTimePreferenceOption extends ProfileOptionWithDescription<CookTimePreferenceKey> {
+  label: string
+}
+
+export interface LegacyMaxCookTimeOption {
+  key: LegacyMaxCookTimeMinutes
+  zhLabel: string
+  enLabel: string
+  zhDescription: string
+  enDescription: string
+}
+
 export interface KitchenEquipmentOption extends ProfileOption<KitchenEquipmentKey> {
   category: string
+  isDefaultAssumed?: boolean
+  isUserSelectable?: boolean
+  isMvpDefault?: boolean
 }
 
 export interface PantryItemOption extends ProfileOption<PantryItemKey> {
@@ -267,15 +337,30 @@ export const SALTINESS_OPTIONS: ScoredProfileOption<SaltinessKey>[] = [
   { key: 'salty', zhLabel: '偏咸', enLabel: 'Salty', score: 2 },
 ]
 
-export const CUISINE_OPTIONS: ProfileOption<CuisineKey>[] = [
-  { key: 'chinese', zhLabel: '中餐', enLabel: 'Chinese' },
-  { key: 'western', zhLabel: '西餐', enLabel: 'Western' },
-  { key: 'korean', zhLabel: '韩餐', enLabel: 'Korean' },
-  { key: 'japanese', zhLabel: '日餐', enLabel: 'Japanese' },
-  { key: 'italian', zhLabel: '意大利餐', enLabel: 'Italian' },
-  { key: 'mexican', zhLabel: '墨西哥餐', enLabel: 'Mexican' },
-  { key: 'southeast_asian', zhLabel: '东南亚菜', enLabel: 'Southeast Asian' },
-  { key: 'no_preference', zhLabel: '无偏好', enLabel: 'No Preference' },
+export const CUISINE_PREFERENCE_OPTIONS: ProfileOption<CuisinePreferenceKey>[] = [
+  { key: 'chinese_home', zhLabel: '中式家常菜', enLabel: 'Chinese Home Cooking' },
+  { key: 'western_simple', zhLabel: '西餐简餐', enLabel: 'Simple Western' },
+  { key: 'shandong', zhLabel: '鲁菜', enLabel: 'Shandong Cuisine' },
+  { key: 'sichuan', zhLabel: '川菜', enLabel: 'Sichuan Cuisine' },
+  { key: 'cantonese', zhLabel: '粤菜', enLabel: 'Cantonese Cuisine' },
+  { key: 'huaiyang', zhLabel: '淮扬菜', enLabel: 'Huaiyang Cuisine' },
+]
+
+/**
+ * @deprecated Use CUISINE_PREFERENCE_OPTIONS for User Preference v0.2.
+ */
+export const CUISINE_OPTIONS: ProfileOption<CuisineKey>[] = CUISINE_PREFERENCE_OPTIONS
+
+export const DEFAULT_CUISINE_PREFERENCE_KEYS: CuisinePreferenceKey[] = [
+  'chinese_home',
+  'western_simple',
+]
+
+export const TRADITIONAL_CHINESE_CUISINE_KEYS: CuisinePreferenceKey[] = [
+  'shandong',
+  'sichuan',
+  'cantonese',
+  'huaiyang',
 ]
 
 export const MEAL_STYLE_OPTIONS: ProfileOption<MealStyleKey>[] = [
@@ -289,19 +374,45 @@ export const MEAL_STYLE_OPTIONS: ProfileOption<MealStyleKey>[] = [
   { key: 'meal_prep', zhLabel: '备餐', enLabel: 'Meal Prep' },
 ]
 
-export const DIET_TAG_OPTIONS: ProfileOption<DietTagKey>[] = [
-  { key: 'vegetarian', zhLabel: '素食', enLabel: 'Vegetarian' },
-  { key: 'vegan', zhLabel: '纯素', enLabel: 'Vegan' },
-  { key: 'no_pork', zhLabel: '不吃猪肉', enLabel: 'No Pork' },
-  { key: 'no_beef', zhLabel: '不吃牛肉', enLabel: 'No Beef' },
-  { key: 'no_lamb', zhLabel: '不吃羊肉', enLabel: 'No Lamb' },
-  { key: 'no_seafood', zhLabel: '不吃海鲜', enLabel: 'No Seafood' },
-  { key: 'no_alcohol', zhLabel: '不饮酒', enLabel: 'No Alcohol' },
+export const DIETARY_RULE_OPTIONS: ProfileOptionWithDescription<DietaryRuleKey>[] = [
+  {
+    key: 'none',
+    zhLabel: '无特殊限制',
+    enLabel: 'No Restriction',
+    zhDescription: '默认选项，不做特殊饮食过滤。',
+    enDescription: 'Default option without special dietary filtering.',
+  },
+  {
+    key: 'vegetarian',
+    zhLabel: '素食',
+    enLabel: 'Vegetarian',
+    zhDescription: '不吃肉类和海鲜，但可以吃蛋奶。',
+    enDescription: 'Avoids meat and seafood; eggs and dairy are allowed.',
+  },
+  {
+    key: 'vegan',
+    zhLabel: '纯素',
+    enLabel: 'Vegan',
+    zhDescription: '不吃肉、海鲜、蛋、奶、奶酪、黄油等动物来源食材。',
+    enDescription: 'Avoids meat, seafood, eggs, dairy, cheese, butter, and other animal-derived ingredients.',
+  },
+  {
+    key: 'halal_friendly',
+    zhLabel: '清真友好',
+    enLabel: 'Halal Friendly',
+    zhDescription: '避免猪肉和酒类/料酒类食材，但不承诺肉类都有清真认证。',
+    enDescription: 'Avoids pork and alcohol/cooking-wine ingredients, without certifying all meats as halal.',
+  },
 ]
 
-export const DISLIKED_INGREDIENT_OPTIONS: ProfileOption<DislikedIngredientKey>[] = [
+/**
+ * @deprecated Use DIETARY_RULE_OPTIONS.
+ */
+export const DIET_TAG_OPTIONS: ProfileOption<DietTagKey>[] = DIETARY_RULE_OPTIONS
+
+export const COMMON_AVOID_INGREDIENT_OPTIONS: ProfileOption<AvoidIngredientKey>[] = [
   { key: 'cilantro', zhLabel: '香菜', enLabel: 'Cilantro' },
-  { key: 'green_onion', zhLabel: '葱', enLabel: 'Green Onion' },
+  { key: 'scallion', zhLabel: '小葱', enLabel: 'Scallion' },
   { key: 'garlic', zhLabel: '大蒜', enLabel: 'Garlic' },
   { key: 'onion', zhLabel: '洋葱', enLabel: 'Onion' },
   { key: 'ginger', zhLabel: '生姜', enLabel: 'Ginger' },
@@ -315,6 +426,12 @@ export const DISLIKED_INGREDIENT_OPTIONS: ProfileOption<DislikedIngredientKey>[]
   { key: 'spicy_food', zhLabel: '辛辣食物', enLabel: 'Spicy Food' },
 ]
 
+/**
+ * @deprecated Use COMMON_AVOID_INGREDIENT_OPTIONS.
+ */
+export const DISLIKED_INGREDIENT_OPTIONS: ProfileOption<DislikedIngredientKey>[] =
+  COMMON_AVOID_INGREDIENT_OPTIONS
+
 export const ALLERGEN_OPTIONS: ProfileOption<AllergenKey>[] = [
   { key: 'peanut', zhLabel: '花生', enLabel: 'Peanut' },
   { key: 'tree_nut', zhLabel: '坚果', enLabel: 'Tree Nut' },
@@ -327,26 +444,192 @@ export const ALLERGEN_OPTIONS: ProfileOption<AllergenKey>[] = [
   { key: 'sesame', zhLabel: '芝麻', enLabel: 'Sesame' },
 ]
 
+export const COOK_TIME_PREFERENCE_OPTIONS = [
+  {
+    key: 'under_15',
+    label: '15 分钟以内',
+    zhLabel: '15 分钟以内',
+    enLabel: 'Under 15 min',
+    zhDescription: '包含备菜、腌制、等待时间。',
+    enDescription: 'Includes prep, marinating, and waiting time.',
+  },
+  {
+    key: 'under_30',
+    label: '30 分钟以内',
+    zhLabel: '30 分钟以内',
+    enLabel: 'Under 30 min',
+    zhDescription: 'MVP 默认建议。',
+    enDescription: 'Recommended MVP default.',
+  },
+  {
+    key: 'under_45',
+    label: '45 分钟以内',
+    zhLabel: '45 分钟以内',
+    enLabel: 'Under 45 min',
+    zhDescription: '适合稍完整的一餐。',
+    enDescription: 'Good for a fuller meal.',
+  },
+  {
+    key: 'over_45_ok',
+    label: '45 分钟以上也可以',
+    zhLabel: '45 分钟以上也可以',
+    enLabel: '45+ min is OK',
+    zhDescription: '愿意接受腌制、炖煮、提前处理等更长准备时间。',
+    enDescription: 'Allows longer preparation such as marinating, stewing, or advance prep.',
+  },
+] as const
+
+export const DEFAULT_COOK_TIME_PREFERENCE_KEY: CookTimePreferenceKey = 'under_30'
+
+export const COOKING_SKILL_OPTIONS: ProfileOptionWithDescription<CookingSkillKey>[] = [
+  {
+    key: 'beginner',
+    zhLabel: '新手',
+    enLabel: 'Beginner',
+    zhDescription: '能煎蛋、煮面、简单炒菜。',
+    enDescription: 'Can fry eggs, cook noodles, and make simple stir-fries.',
+  },
+  {
+    key: 'normal',
+    zhLabel: '普通',
+    enLabel: 'Normal',
+    zhDescription: '会做大多数家常菜。',
+    enDescription: 'Can cook most home-style dishes.',
+  },
+  {
+    key: 'confident',
+    zhLabel: '熟练',
+    enLabel: 'Confident',
+    zhDescription: '愿意处理复杂步骤和火候。',
+    enDescription: 'Comfortable with more complex steps and heat control.',
+  },
+]
+
+export const DEFAULT_COOKING_SKILL_KEY: CookingSkillKey = 'normal'
+
 export const KITCHEN_EQUIPMENT_OPTIONS: KitchenEquipmentOption[] = [
-  { key: 'pot', zhLabel: '汤锅', enLabel: 'Pot', category: 'cooking' },
-  { key: 'pan', zhLabel: '平底锅', enLabel: 'Pan', category: 'cooking' },
-  { key: 'wok', zhLabel: '炒锅', enLabel: 'Wok', category: 'cooking' },
-  { key: 'saucepan', zhLabel: '小炖锅', enLabel: 'Saucepan', category: 'cooking' },
-  { key: 'baking_tray', zhLabel: '烤盘', enLabel: 'Baking Tray', category: 'baking' },
-  { key: 'rice_cooker', zhLabel: '电饭煲', enLabel: 'Rice Cooker', category: 'appliance' },
-  { key: 'air_fryer', zhLabel: '空气炸锅', enLabel: 'Air Fryer', category: 'appliance' },
-  { key: 'oven', zhLabel: '烤箱', enLabel: 'Oven', category: 'appliance' },
-  { key: 'microwave', zhLabel: '微波炉', enLabel: 'Microwave', category: 'appliance' },
-  { key: 'blender', zhLabel: '搅拌机', enLabel: 'Blender', category: 'appliance' },
-  { key: 'toaster', zhLabel: '烤面包机', enLabel: 'Toaster', category: 'appliance' },
-  { key: 'knife', zhLabel: '刀', enLabel: 'Knife', category: 'prep' },
-  { key: 'cutting_board', zhLabel: '砧板', enLabel: 'Cutting Board', category: 'prep' },
-  { key: 'spatula', zhLabel: '锅铲', enLabel: 'Spatula', category: 'prep' },
-  { key: 'ladle', zhLabel: '汤勺', enLabel: 'Ladle', category: 'prep' },
-  { key: 'tongs', zhLabel: '夹子', enLabel: 'Tongs', category: 'prep' },
-  { key: 'mixing_bowl', zhLabel: '搅拌碗', enLabel: 'Mixing Bowl', category: 'prep' },
-  { key: 'peeler', zhLabel: '削皮器', enLabel: 'Peeler', category: 'prep' },
-  { key: 'measuring_cup', zhLabel: '量杯', enLabel: 'Measuring Cup', category: 'prep' },
+  { key: 'knife', zhLabel: '刀', enLabel: 'Knife', category: 'assumed_basic', isDefaultAssumed: true },
+  { key: 'cutting_board', zhLabel: '砧板', enLabel: 'Cutting Board', category: 'assumed_basic', isDefaultAssumed: true },
+  { key: 'bowl', zhLabel: '碗', enLabel: 'Bowl', category: 'assumed_basic', isDefaultAssumed: true },
+  { key: 'plate', zhLabel: '盘子', enLabel: 'Plate', category: 'assumed_basic', isDefaultAssumed: true },
+  { key: 'spoon', zhLabel: '勺子', enLabel: 'Spoon', category: 'assumed_basic', isDefaultAssumed: true },
+  {
+    key: 'chopsticks_or_fork',
+    zhLabel: '筷子或叉子',
+    enLabel: 'Chopsticks or Fork',
+    category: 'assumed_basic',
+    isDefaultAssumed: true,
+  },
+  { key: 'spatula', zhLabel: '锅铲', enLabel: 'Spatula', category: 'assumed_basic', isDefaultAssumed: true },
+  {
+    key: 'basic_storage_container',
+    zhLabel: '基础保鲜盒',
+    enLabel: 'Basic Storage Container',
+    category: 'assumed_basic',
+    isDefaultAssumed: true,
+  },
+  {
+    key: 'stove_or_hotplate',
+    zhLabel: '炉灶 / 电磁炉',
+    enLabel: 'Stove or Hotplate',
+    category: 'cooking',
+    isUserSelectable: true,
+    isMvpDefault: true,
+  },
+  {
+    key: 'frying_pan_or_wok',
+    zhLabel: '平底锅 / 炒锅',
+    enLabel: 'Frying Pan or Wok',
+    category: 'cooking',
+    isUserSelectable: true,
+    isMvpDefault: true,
+  },
+  {
+    key: 'pot',
+    zhLabel: '汤锅',
+    enLabel: 'Pot',
+    category: 'cooking',
+    isUserSelectable: true,
+    isMvpDefault: true,
+  },
+  {
+    key: 'rice_cooker',
+    zhLabel: '电饭煲',
+    enLabel: 'Rice Cooker',
+    category: 'appliance',
+    isUserSelectable: true,
+    isMvpDefault: true,
+  },
+  {
+    key: 'microwave',
+    zhLabel: '微波炉',
+    enLabel: 'Microwave',
+    category: 'appliance',
+    isUserSelectable: true,
+    isMvpDefault: true,
+  },
+  { key: 'oven', zhLabel: '烤箱', enLabel: 'Oven', category: 'appliance', isUserSelectable: true },
+  { key: 'air_fryer', zhLabel: '空气炸锅', enLabel: 'Air Fryer', category: 'appliance', isUserSelectable: true },
+  {
+    key: 'electric_kettle',
+    zhLabel: '电热水壶',
+    enLabel: 'Electric Kettle',
+    category: 'appliance',
+    isUserSelectable: true,
+  },
+  { key: 'steamer', zhLabel: '蒸锅', enLabel: 'Steamer', category: 'cooking', isUserSelectable: true },
+  { key: 'blender', zhLabel: '搅拌机', enLabel: 'Blender', category: 'appliance', isUserSelectable: true },
+  {
+    key: 'pressure_cooker',
+    zhLabel: '压力锅',
+    enLabel: 'Pressure Cooker',
+    category: 'appliance',
+    isUserSelectable: true,
+  },
+  { key: 'toaster', zhLabel: '烤面包机', enLabel: 'Toaster', category: 'appliance', isUserSelectable: true },
+  { key: 'pan', zhLabel: '平底锅', enLabel: 'Pan', category: 'legacy_recipe' },
+  { key: 'wok', zhLabel: '炒锅', enLabel: 'Wok', category: 'legacy_recipe' },
+  { key: 'saucepan', zhLabel: '小炖锅', enLabel: 'Saucepan', category: 'legacy_recipe' },
+  { key: 'baking_tray', zhLabel: '烤盘', enLabel: 'Baking Tray', category: 'legacy_recipe' },
+  { key: 'ladle', zhLabel: '汤勺', enLabel: 'Ladle', category: 'legacy_recipe' },
+  { key: 'tongs', zhLabel: '夹子', enLabel: 'Tongs', category: 'legacy_recipe' },
+  { key: 'mixing_bowl', zhLabel: '搅拌碗', enLabel: 'Mixing Bowl', category: 'legacy_recipe' },
+  { key: 'peeler', zhLabel: '削皮器', enLabel: 'Peeler', category: 'legacy_recipe' },
+  { key: 'measuring_cup', zhLabel: '量杯', enLabel: 'Measuring Cup', category: 'legacy_recipe' },
+]
+
+export const DEFAULT_ASSUMED_KITCHEN_EQUIPMENT_KEYS: KitchenEquipmentKey[] = [
+  'knife',
+  'cutting_board',
+  'bowl',
+  'plate',
+  'spoon',
+  'chopsticks_or_fork',
+  'spatula',
+  'basic_storage_container',
+]
+
+export const USER_SELECTABLE_KITCHEN_EQUIPMENT_KEYS: KitchenEquipmentKey[] = [
+  'stove_or_hotplate',
+  'frying_pan_or_wok',
+  'pot',
+  'rice_cooker',
+  'microwave',
+  'oven',
+  'air_fryer',
+  'electric_kettle',
+  'steamer',
+  'blender',
+  'pressure_cooker',
+  'toaster',
+]
+
+export const MVP_DEFAULT_KITCHEN_EQUIPMENT_KEYS: KitchenEquipmentKey[] = [
+  'stove_or_hotplate',
+  'frying_pan_or_wok',
+  'pot',
+  'rice_cooker',
+  'microwave',
 ]
 
 export const PANTRY_ITEM_OPTIONS: PantryItemOption[] = [
@@ -362,6 +645,7 @@ export const PANTRY_ITEM_OPTIONS: PantryItemOption[] = [
   { key: 'dark_soy_sauce', zhLabel: '老抽', enLabel: 'Dark Soy Sauce', category: 'sauce' },
   { key: 'vinegar', zhLabel: '醋', enLabel: 'Vinegar', category: 'sauce' },
   { key: 'oyster_sauce', zhLabel: '蚝油', enLabel: 'Oyster Sauce', category: 'sauce' },
+  { key: 'cooking_wine', zhLabel: '料酒', enLabel: 'Cooking Wine', category: 'sauce' },
   { key: 'ketchup', zhLabel: '番茄酱', enLabel: 'Ketchup', category: 'sauce' },
   { key: 'mayonnaise', zhLabel: '蛋黄酱', enLabel: 'Mayonnaise', category: 'sauce' },
   { key: 'mustard', zhLabel: '芥末酱', enLabel: 'Mustard', category: 'sauce' },
@@ -376,6 +660,8 @@ export const PANTRY_ITEM_OPTIONS: PantryItemOption[] = [
   { key: 'gochujang', zhLabel: '韩式辣酱', enLabel: 'Gochujang', category: 'asian_paste' },
   { key: 'miso', zhLabel: '味噌', enLabel: 'Miso', category: 'asian_paste' },
   { key: 'chili_crisp', zhLabel: '油泼辣子', enLabel: 'Chili Crisp', category: 'asian_paste' },
+  { key: 'pasta_sauce', zhLabel: '意面酱', enLabel: 'Pasta Sauce', category: 'sauce' },
+  { key: 'curry_blocks', zhLabel: '咖喱块', enLabel: 'Curry Blocks', category: 'asian_paste' },
   { key: 'rice', zhLabel: '大米', enLabel: 'Rice', category: 'starch_dry_good' },
   { key: 'pasta', zhLabel: '意大利面', enLabel: 'Pasta', category: 'starch_dry_good' },
   { key: 'noodles', zhLabel: '面条', enLabel: 'Noodles', category: 'starch_dry_good' },
@@ -390,6 +676,23 @@ export const PANTRY_ITEM_OPTIONS: PantryItemOption[] = [
   { key: 'frozen_dumplings', zhLabel: '冷冻饺子', enLabel: 'Frozen Dumplings', category: 'canned_frozen_basic' },
 ]
 
+export const DEFAULT_ASSUMED_PANTRY_KEYS = [
+  'salt',
+  'sugar',
+] as const
+
+export const QUICK_PANTRY_ITEM_KEYS = [
+  'soy_sauce',
+  'vinegar',
+  'black_pepper',
+  'sesame_oil',
+  'chili_oil',
+  'cooking_wine',
+  'cornstarch',
+  'pasta_sauce',
+  'curry_blocks',
+] as const
+
 // ============================================================================
 // Runtime Key Sets
 // ============================================================================
@@ -400,15 +703,33 @@ export const SPICE_LEVEL_KEYS: SpiceLevelKey[] = SPICE_LEVEL_OPTIONS.map((o) => 
 
 export const SALTINESS_KEYS: SaltinessKey[] = SALTINESS_OPTIONS.map((o) => o.key)
 
-export const CUISINE_KEYS: CuisineKey[] = CUISINE_OPTIONS.map((o) => o.key)
+export const CUISINE_PREFERENCE_KEYS: CuisinePreferenceKey[] = CUISINE_PREFERENCE_OPTIONS.map((o) => o.key)
+
+/**
+ * @deprecated Use CUISINE_PREFERENCE_KEYS for User Preference v0.2.
+ */
+export const CUISINE_KEYS: CuisineKey[] = CUISINE_PREFERENCE_KEYS
 
 export const MEAL_STYLE_KEYS: MealStyleKey[] = MEAL_STYLE_OPTIONS.map((o) => o.key)
 
-export const DIET_TAG_KEYS: DietTagKey[] = DIET_TAG_OPTIONS.map((o) => o.key)
+export const DIETARY_RULE_KEYS: DietaryRuleKey[] = DIETARY_RULE_OPTIONS.map((o) => o.key)
 
-export const DISLIKED_INGREDIENT_KEYS: DislikedIngredientKey[] = DISLIKED_INGREDIENT_OPTIONS.map((o) => o.key)
+/**
+ * @deprecated Use DIETARY_RULE_KEYS.
+ */
+export const DIET_TAG_KEYS: DietTagKey[] = DIETARY_RULE_KEYS
+
+export const COMMON_AVOID_INGREDIENT_KEYS: AvoidIngredientKey[] =
+  COMMON_AVOID_INGREDIENT_OPTIONS.map((o) => o.key)
+
+/**
+ * @deprecated Use COMMON_AVOID_INGREDIENT_KEYS or ingredient dictionary keys.
+ */
+export const DISLIKED_INGREDIENT_KEYS: DislikedIngredientKey[] = COMMON_AVOID_INGREDIENT_KEYS
 
 export const ALLERGEN_KEYS: AllergenKey[] = ALLERGEN_OPTIONS.map((o) => o.key)
+
+export const COOKING_SKILL_KEYS: CookingSkillKey[] = COOKING_SKILL_OPTIONS.map((o) => o.key)
 
 export const KITCHEN_EQUIPMENT_KEYS: KitchenEquipmentKey[] = KITCHEN_EQUIPMENT_OPTIONS.map((o) => o.key)
 
@@ -430,24 +751,53 @@ export function isValidSaltinessKey(key: string): key is SaltinessKey {
   return SALTINESS_KEYS.includes(key as SaltinessKey)
 }
 
+export function isValidCuisinePreferenceKey(key: string): key is CuisinePreferenceKey {
+  return CUISINE_PREFERENCE_KEYS.includes(key as CuisinePreferenceKey)
+}
+
+/**
+ * @deprecated Use isValidCuisinePreferenceKey for User Preference v0.2.
+ */
 export function isValidCuisineKey(key: string): key is CuisineKey {
-  return CUISINE_KEYS.includes(key as CuisineKey)
+  return isValidCuisinePreferenceKey(key)
 }
 
 export function isValidMealStyleKey(key: string): key is MealStyleKey {
   return MEAL_STYLE_KEYS.includes(key as MealStyleKey)
 }
 
-export function isValidDietTagKey(key: string): key is DietTagKey {
-  return DIET_TAG_KEYS.includes(key as DietTagKey)
+export function isValidDietaryRuleKey(key: string): key is DietaryRuleKey {
+  return DIETARY_RULE_KEYS.includes(key as DietaryRuleKey)
 }
 
+/**
+ * @deprecated Use isValidDietaryRuleKey.
+ */
+export function isValidDietTagKey(key: string): key is DietTagKey {
+  return isValidDietaryRuleKey(key)
+}
+
+export function isValidAvoidIngredientKey(key: string): key is AvoidIngredientKey {
+  return /^[a-z][a-z0-9_]*$/.test(key)
+}
+
+/**
+ * @deprecated Use isValidAvoidIngredientKey.
+ */
 export function isValidDislikedIngredientKey(key: string): key is DislikedIngredientKey {
-  return DISLIKED_INGREDIENT_KEYS.includes(key as DislikedIngredientKey)
+  return isValidAvoidIngredientKey(key)
 }
 
 export function isValidAllergenKey(key: string): key is AllergenKey {
   return ALLERGEN_KEYS.includes(key as AllergenKey)
+}
+
+export function isValidCookTimePreferenceKey(key: string): key is CookTimePreferenceKey {
+  return COOK_TIME_PREFERENCE_KEYS.includes(key as CookTimePreferenceKey)
+}
+
+export function isValidCookingSkillKey(key: string): key is CookingSkillKey {
+  return COOKING_SKILL_KEYS.includes(key as CookingSkillKey)
 }
 
 export function isValidKitchenEquipmentKey(key: string): key is KitchenEquipmentKey {
