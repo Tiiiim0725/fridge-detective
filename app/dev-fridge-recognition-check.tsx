@@ -1,0 +1,1475 @@
+import { Ionicons } from '@expo/vector-icons'
+import * as ImagePicker from 'expo-image-picker'
+import { useMemo, useState } from 'react'
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+
+import { runFridgeRecognition } from '@/services/fridgeRecognitionService'
+import {
+  confirmFridgeScanItems,
+  getCurrentFridgeItems,
+} from '@/services/fridgeService'
+import {
+  FRIDGE_PHOTO_GUIDE_STEPS,
+  type FridgeItem,
+  type FridgePhotoGuideStep,
+  type FridgePhotoZoneKey,
+  type FridgeScanItem,
+} from '@/types/fridge'
+
+type LocalPhotoStatus = 'local' | 'uploading' | 'recognizing' | 'done' | 'error'
+type FlowStatus = 'idle' | 'recognizing' | 'ready' | 'confirming' | 'success' | 'error'
+type PhotoSource = 'camera' | 'url'
+type IoniconName = keyof typeof Ionicons.glyphMap
+
+type LocalPhoto = {
+  id: string
+  localUri: string
+  remoteImageUrl?: string | null
+  selected: boolean
+  source: PhotoSource
+  zoneKey: FridgePhotoZoneKey
+  zoneTitle: string
+  guidePrompt: string
+  photoOrder: number
+  status: LocalPhotoStatus
+  storagePath?: string
+  errorMessage?: string
+  width?: number | null
+  height?: number | null
+  fileSize?: number | null
+  contentType?: string | null
+}
+
+type PreviewIngredient = {
+  id: string
+  displayName: string
+  quantityLabel: string
+  icon: IoniconName
+}
+
+const fallbackGuideStep: FridgePhotoGuideStep = {
+  zoneKey: 'fridge_extra',
+  title: '额外补拍',
+  guidePrompt: '如果还有遗漏，请补拍其他区域',
+  photoOrder: 6,
+  isOptional: true,
+}
+
+const mockIngredientsForPreview: PreviewIngredient[] = [
+  {
+    id: 'preview-tomato',
+    displayName: '传家宝番茄',
+    quantityLabel: '示例识别',
+    icon: 'restaurant-outline',
+  },
+  {
+    id: 'preview-egg',
+    displayName: '农场鸡蛋',
+    quantityLabel: '半打',
+    icon: 'ellipse-outline',
+  },
+  {
+    id: 'preview-pepper',
+    displayName: '甜椒',
+    quantityLabel: '拍照后替换',
+    icon: 'leaf-outline',
+  },
+]
+
+const scannerPreviewImageUrl =
+  'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=85'
+
+const bottomNavItems: Array<{
+  key: string
+  label: string
+  icon: IoniconName
+  active?: boolean
+}> = [
+  { key: 'pantry', label: '储藏室', icon: 'grid-outline', active: true },
+  { key: 'chef', label: 'AI 厨师', icon: 'bar-chart-outline' },
+  { key: 'recipes', label: '食谱书', icon: 'book-outline' },
+  { key: 'summary', label: '总结', icon: 'heart-outline' },
+]
+
+function makePhotoId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function getGuideStep(index: number): FridgePhotoGuideStep {
+  return FRIDGE_PHOTO_GUIDE_STEPS[Math.min(index, FRIDGE_PHOTO_GUIDE_STEPS.length - 1)]
+    ?? fallbackGuideStep
+}
+
+function formatQuantity(item: FridgeScanItem): string {
+  if (item.quantityKind === 'count' && typeof item.quantityCount === 'number') {
+    return `${item.quantityCount} 个`
+  }
+
+  if (item.quantityKind === 'text' && item.quantityText) {
+    return item.quantityText
+  }
+
+  return '数量待确认'
+}
+
+function confidenceLabel(confidence: number | null): string {
+  if (typeof confidence !== 'number') {
+    return '待确认'
+  }
+
+  return `${Math.round(confidence * 100)}%`
+}
+
+function iconForStatus(status: LocalPhotoStatus): IoniconName {
+  if (status === 'uploading') return 'cloud-upload-outline'
+  if (status === 'recognizing') return 'sparkles-outline'
+  if (status === 'done') return 'checkmark-circle-outline'
+  if (status === 'error') return 'alert-circle-outline'
+  return 'image-outline'
+}
+
+function labelForStatus(status: LocalPhotoStatus): string {
+  if (status === 'uploading') return '上传中'
+  if (status === 'recognizing') return '识别中'
+  if (status === 'done') return '已识别'
+  if (status === 'error') return '失败'
+  return '待识别'
+}
+
+function iconForItemName(name: string): IoniconName {
+  const normalized = name.toLowerCase()
+
+  if (normalized.includes('milk') || normalized.includes('奶')) {
+    return 'water-outline'
+  }
+
+  if (
+    normalized.includes('tomato')
+    || normalized.includes('pepper')
+    || normalized.includes('rice')
+    || normalized.includes('番茄')
+    || normalized.includes('甜椒')
+    || normalized.includes('米')
+  ) {
+    return 'leaf-outline'
+  }
+
+  return 'restaurant-outline'
+}
+
+export default function DevFridgeRecognitionCheck() {
+  const [photos, setPhotos] = useState<LocalPhoto[]>([])
+  const [flowStatus, setFlowStatus] = useState<FlowStatus>('idle')
+  const [permissionMessage, setPermissionMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [scanId, setScanId] = useState<string | null>(null)
+  const [photoResults, setPhotoResults] = useState<unknown[]>([])
+  const [recognizedItems, setRecognizedItems] = useState<FridgeScanItem[]>([])
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
+  const [confirmedCount, setConfirmedCount] = useState<number | null>(null)
+  const [currentFridgeItems, setCurrentFridgeItems] = useState<FridgeItem[]>([])
+  const [debugOpen, setDebugOpen] = useState(false)
+  const [urlFallback, setUrlFallback] = useState('')
+
+  const selectedPhotos = useMemo(
+    () => photos.filter((photo) => photo.selected),
+    [photos]
+  )
+  const primaryPreviewUri = selectedPhotos[0]?.localUri ?? photos[0]?.localUri ?? null
+  const scannerImageUri = primaryPreviewUri ?? scannerPreviewImageUrl
+  const selectedItemCount = selectedItemIds.length
+  const currentGuideStep = getGuideStep(photos.length)
+  const isBusy = flowStatus === 'recognizing' || flowStatus === 'confirming'
+  const scannerLabel = flowStatus === 'recognizing'
+    ? 'AI 正在分析'
+    : recognizedItems.length > 0
+      ? `发现 ${recognizedItems.length} 个物品`
+      : '准备扫描'
+  const resultItemsForPreview = recognizedItems.length > 0
+    ? recognizedItems.map((item) => ({
+        id: item.id,
+        displayName: item.displayName,
+        quantityLabel: formatQuantity(item),
+        icon: iconForItemName(`${item.rawName} ${item.displayName}`),
+      }))
+    : mockIngredientsForPreview
+
+  async function takePhoto() {
+    setPermissionMessage(null)
+    setErrorMessage(null)
+
+    const permission = await ImagePicker.requestCameraPermissionsAsync()
+
+    if (!permission.granted) {
+      setPermissionMessage('需要相机权限才能拍冰箱照片。你可以在系统设置里打开权限后再试。')
+      return
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.82,
+      allowsEditing: false,
+      base64: false,
+      exif: false,
+      cameraType: ImagePicker.CameraType.back,
+    })
+
+    if (result.canceled || !result.assets?.[0]) {
+      return
+    }
+
+    const asset = result.assets[0]
+    const guideStep = getGuideStep(photos.length)
+
+    setPhotos((current) => [
+      ...current,
+      {
+        id: makePhotoId(),
+        localUri: asset.uri,
+        selected: true,
+        source: 'camera',
+        zoneKey: guideStep.zoneKey,
+        zoneTitle: guideStep.title,
+        guidePrompt: guideStep.guidePrompt,
+        photoOrder: current.length + 1,
+        status: 'local',
+        width: asset.width || null,
+        height: asset.height || null,
+        fileSize: asset.fileSize ?? null,
+        contentType: asset.mimeType ?? 'image/jpeg',
+      },
+    ])
+  }
+
+  function addUrlFallbackPhoto() {
+    const trimmedUrl = urlFallback.trim()
+
+    if (!trimmedUrl) {
+      setErrorMessage('请输入一张公网可访问的 jpg/png 图片 URL。')
+      return
+    }
+
+    const guideStep = getGuideStep(photos.length)
+
+    setPhotos((current) => [
+      ...current,
+      {
+        id: makePhotoId(),
+        localUri: trimmedUrl,
+        remoteImageUrl: trimmedUrl,
+        selected: true,
+        source: 'url',
+        zoneKey: guideStep.zoneKey,
+        zoneTitle: `${guideStep.title} URL`,
+        guidePrompt: guideStep.guidePrompt,
+        photoOrder: current.length + 1,
+        status: 'local',
+        contentType: 'image/jpeg',
+      },
+    ])
+    setUrlFallback('')
+    setErrorMessage(null)
+  }
+
+  function removePhoto(photoId: string) {
+    setPhotos((current) => current.filter((photo) => photo.id !== photoId))
+  }
+
+  function togglePhoto(photoId: string) {
+    setPhotos((current) => current.map((photo) => (
+      photo.id === photoId
+        ? { ...photo, selected: !photo.selected }
+        : photo
+    )))
+  }
+
+  function toggleItem(itemId: string) {
+    setSelectedItemIds((current) => (
+      current.includes(itemId)
+        ? current.filter((id) => id !== itemId)
+        : [...current, itemId]
+    ))
+  }
+
+  function resetFlow() {
+    setPhotos([])
+    setFlowStatus('idle')
+    setPermissionMessage(null)
+    setErrorMessage(null)
+    setScanId(null)
+    setPhotoResults([])
+    setRecognizedItems([])
+    setSelectedItemIds([])
+    setConfirmedCount(null)
+    setCurrentFridgeItems([])
+  }
+
+  async function startRecognition() {
+    if (selectedPhotos.length === 0) {
+      setErrorMessage('请先拍一张照片，或选中至少一张照片再开始识别。')
+      return
+    }
+
+    setFlowStatus('recognizing')
+    setErrorMessage(null)
+    setScanId(null)
+    setPhotoResults([])
+    setRecognizedItems([])
+    setSelectedItemIds([])
+    setConfirmedCount(null)
+    setCurrentFridgeItems([])
+
+    try {
+      const result = await runFridgeRecognition({
+        photos: selectedPhotos.map((photo, index) => ({
+          clientPhotoId: photo.id,
+          localUri: photo.localUri,
+          remoteImageUrl: photo.remoteImageUrl,
+          zoneKey: photo.zoneKey,
+          guidePrompt: photo.guidePrompt,
+          photoOrder: index + 1,
+          contentType: photo.contentType,
+          fileSize: photo.fileSize,
+          width: photo.width,
+          height: photo.height,
+        })),
+        onPhotoProgress: (progress) => {
+          setPhotos((current) => current.map((photo) => (
+            photo.id === progress.clientPhotoId
+              ? {
+                  ...photo,
+                  status: progress.status,
+                  storagePath: progress.storagePath ?? photo.storagePath,
+                  errorMessage: progress.errorMessage,
+                }
+              : photo
+          )))
+        },
+      })
+
+      setScanId(result.scanId)
+      setPhotoResults(result.photoResults)
+      setRecognizedItems(result.items)
+      setSelectedItemIds(result.items.map((item) => item.id))
+      setFlowStatus('ready')
+
+      if (result.items.length === 0) {
+        setErrorMessage('AI 没有发现可确认的食材。可以换一张更清楚的照片再试。')
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+      setFlowStatus('error')
+    }
+  }
+
+  async function confirmSelectedItems() {
+    if (!scanId) {
+      setErrorMessage('还没有可确认的识别批次。')
+      return
+    }
+
+    if (selectedItemIds.length === 0) {
+      setErrorMessage('请至少保留一个食材，再更新冰箱。')
+      return
+    }
+
+    setFlowStatus('confirming')
+    setErrorMessage(null)
+
+    try {
+      const savedItems = await confirmFridgeScanItems({
+        scanId,
+        itemIds: selectedItemIds,
+      })
+      const activeItems = await getCurrentFridgeItems()
+
+      setConfirmedCount(savedItems.length)
+      setCurrentFridgeItems(activeItems)
+      setFlowStatus('success')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+      setFlowStatus('ready')
+    }
+  }
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.topBar}>
+          <Pressable style={styles.menuButton}>
+            <Ionicons name="menu-outline" size={28} color="#4f4741" />
+          </Pressable>
+          <Text style={styles.brand}>储藏室</Text>
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={19} color="#ffffff" />
+          </View>
+        </View>
+
+        <View style={styles.heroCopy}>
+          <Text style={styles.title}>储藏室扫描仪</Text>
+          <Text style={styles.subtitle}>
+            将摄像头对准你的食材。识别结果会先给你确认，再更新冰箱库存。
+          </Text>
+        </View>
+
+        <View style={styles.scannerCard}>
+          <View style={styles.scannerImageFrame}>
+            <Image source={{ uri: scannerImageUri }} style={styles.scannerImage} />
+
+            <View style={styles.scannerShade} />
+
+            <View style={styles.analysisPill}>
+              <View style={styles.liveDot} />
+              <Text style={styles.analysisPillText}>{scannerLabel}</Text>
+            </View>
+
+            <View style={styles.guideBubble}>
+              <Text style={styles.guideBubbleTitle}>{currentGuideStep.title}</Text>
+              <Text style={styles.guideBubbleText}>{currentGuideStep.guidePrompt}</Text>
+            </View>
+
+            <View style={styles.cameraControls}>
+              <Pressable
+                disabled={isBusy || photos.length === 0}
+                onPress={resetFlow}
+                style={({ pressed }) => [
+                  styles.roundToolButton,
+                  pressed && !isBusy && styles.roundToolButtonPressed,
+                  (isBusy || photos.length === 0) && styles.disabledButton,
+                ]}
+              >
+                <Ionicons name="refresh-outline" size={24} color="#5b5149" />
+              </Pressable>
+
+              <Pressable
+                disabled={isBusy}
+                onPress={takePhoto}
+                style={({ pressed }) => [
+                  styles.cameraButton,
+                  pressed && !isBusy && styles.cameraButtonPressed,
+                  isBusy && styles.disabledButton,
+                ]}
+              >
+                <Ionicons name="camera-outline" size={42} color="#ffffff" />
+              </Pressable>
+
+              <Pressable
+                disabled={isBusy || selectedPhotos.length === 0}
+                onPress={startRecognition}
+                style={({ pressed }) => [
+                  styles.roundToolButton,
+                  styles.scanButton,
+                  pressed && !isBusy && styles.roundToolButtonPressed,
+                  (isBusy || selectedPhotos.length === 0) && styles.disabledButton,
+                ]}
+              >
+                <Ionicons name="scan-outline" size={24} color="#5b5149" />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.photoPanel}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionKicker}>Photos</Text>
+              <Text style={styles.sectionTitle}>拍摄清单</Text>
+            </View>
+            <Text style={styles.sectionMeta}>{selectedPhotos.length} 张参与识别</Text>
+          </View>
+
+          {photos.length === 0 ? (
+            <View style={styles.emptyPhotos}>
+              <Ionicons name="images-outline" size={26} color="#8f8177" />
+              <Text style={styles.emptyTitle}>先拍一张冰箱照片</Text>
+              <Text style={styles.emptyText}>
+                每张照片会变成缩略图，你可以删除或取消参与识别。
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              contentContainerStyle={styles.photoStrip}
+              showsHorizontalScrollIndicator={false}
+            >
+              {photos.map((photo) => (
+                <View
+                  key={photo.id}
+                  style={[
+                    styles.photoCard,
+                    photo.selected && styles.photoCardSelected,
+                    photo.status === 'error' && styles.photoCardError,
+                  ]}
+                >
+                  <Pressable onPress={() => togglePhoto(photo.id)} style={styles.photoPressable}>
+                    <Image source={{ uri: photo.localUri }} style={styles.thumbnail} />
+                    <View style={styles.photoStatusPill}>
+                      <Ionicons
+                        name={iconForStatus(photo.status)}
+                        size={13}
+                        color={photo.status === 'error' ? '#a33a2d' : '#4c4037'}
+                      />
+                      <Text style={styles.photoStatusText}>{labelForStatus(photo.status)}</Text>
+                    </View>
+                    {!photo.selected ? <View style={styles.photoDim} /> : null}
+                  </Pressable>
+                  <View style={styles.photoControls}>
+                    <Text style={styles.photoZoneText} numberOfLines={1}>
+                      {photo.zoneTitle}
+                    </Text>
+                    <Pressable onPress={() => removePhoto(photo.id)} style={styles.smallIconButton}>
+                      <Ionicons name="close-outline" size={18} color="#9b3d33" />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          <View style={styles.urlFallbackPanel}>
+            <View style={styles.urlFallbackCopy}>
+              <Text style={styles.urlFallbackTitle}>公网图片测试</Text>
+              <Text style={styles.urlFallbackText}>真机拍照不可用时，可以临时用图片 URL。</Text>
+            </View>
+            <TextInput
+              value={urlFallback}
+              onChangeText={setUrlFallback}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="https://example.com/fridge.jpg"
+              placeholderTextColor="#9c9087"
+              style={styles.urlInput}
+            />
+            <Pressable
+              disabled={isBusy}
+              onPress={addUrlFallbackPhoto}
+              style={({ pressed }) => [
+                styles.urlButton,
+                pressed && !isBusy && styles.urlButtonPressed,
+                isBusy && styles.disabledButton,
+              ]}
+            >
+              <Ionicons name="link-outline" size={17} color="#1f5945" />
+              <Text style={styles.urlButtonText}>加入</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {permissionMessage ? (
+          <View style={styles.noticePanel}>
+            <Ionicons name="lock-closed-outline" size={18} color="#8a5b00" />
+            <Text style={styles.noticeText}>{permissionMessage}</Text>
+          </View>
+        ) : null}
+
+        {errorMessage ? (
+          <View style={styles.errorPanel}>
+            <Ionicons name="alert-circle-outline" size={18} color="#a33a2d" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.resultsPanel}>
+          <View style={styles.resultsHeader}>
+            <View>
+              <Text style={styles.resultsTitle}>
+                {recognizedItems.length > 0 ? 'AI 发现了这些食材' : '在储藏室中检测到'}
+              </Text>
+              <Text style={styles.resultsSubtitle}>
+                {recognizedItems.length > 0
+                  ? '默认全选，点一下可以取消误识别项。'
+                  : '拍照识别后，这里会替换成真实候选。'}
+              </Text>
+            </View>
+            <Text style={styles.itemCountPill}>
+              {recognizedItems.length > 0
+                ? `${selectedItemCount}/${recognizedItems.length}`
+                : '预览'}
+            </Text>
+          </View>
+
+          <View style={styles.detectedGrid}>
+            {resultItemsForPreview.map((item) => {
+              const selected = recognizedItems.length === 0 || selectedItemIds.includes(item.id)
+              const scanItem = recognizedItems.find((candidate) => candidate.id === item.id)
+              const weak = scanItem
+                ? scanItem.needsReview || (scanItem.confidence ?? 0) < 0.7
+                : false
+
+              return (
+                <Pressable
+                  key={item.id}
+                  disabled={recognizedItems.length === 0}
+                  onPress={() => toggleItem(item.id)}
+                  style={({ pressed }) => [
+                    styles.detectedCard,
+                    selected && recognizedItems.length > 0 && styles.detectedCardSelected,
+                    weak && styles.detectedCardWeak,
+                    pressed && styles.detectedCardPressed,
+                  ]}
+                >
+                  <View style={styles.detectedIcon}>
+                    <Ionicons name={item.icon} size={24} color="#ffffff" />
+                  </View>
+                  <Text style={styles.detectedName} numberOfLines={2}>{item.displayName}</Text>
+                  <Text style={styles.detectedQuantity} numberOfLines={1}>{item.quantityLabel}</Text>
+                  {scanItem ? (
+                    <View style={styles.detectedMetaRow}>
+                      <Text style={styles.confidenceText}>{confidenceLabel(scanItem.confidence)}</Text>
+                      {weak ? <Text style={styles.reviewBadge}>待确认</Text> : null}
+                      <Ionicons
+                        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={18}
+                        color={selected ? '#1f5945' : '#9c9087'}
+                      />
+                    </View>
+                  ) : null}
+                </Pressable>
+              )
+            })}
+
+            <View style={[styles.detectedCard, styles.manualCard]}>
+              <View style={styles.manualIcon}>
+                <Ionicons name="add-outline" size={28} color="#4f4741" />
+              </View>
+              <Text style={styles.manualTitle}>手动添加</Text>
+              <Text style={styles.manualText}>下一步接入编辑入口</Text>
+            </View>
+          </View>
+
+          <Pressable
+            disabled={
+              flowStatus === 'confirming'
+              || recognizedItems.length === 0
+              || selectedItemIds.length === 0
+            }
+            onPress={confirmSelectedItems}
+            style={({ pressed }) => [
+              styles.confirmButton,
+              pressed && flowStatus !== 'confirming' && styles.confirmButtonPressed,
+              (
+                flowStatus === 'confirming'
+                || recognizedItems.length === 0
+                || selectedItemIds.length === 0
+              ) && styles.disabledButton,
+            ]}
+          >
+            {flowStatus === 'confirming' ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Ionicons name="sparkles-outline" size={20} color="#ffffff" />
+            )}
+            <Text style={styles.confirmButtonText}>更新冰箱并推荐菜谱</Text>
+          </Pressable>
+        </View>
+
+        {flowStatus === 'success' ? (
+          <View style={styles.successPanel}>
+            <Ionicons name="checkmark-circle-outline" size={30} color="#1f5945" />
+            <View style={styles.successCopy}>
+              <Text style={styles.successTitle}>冰箱已更新</Text>
+              <Text style={styles.successText}>
+                {confirmedCount ?? selectedItemCount} 个食材已进入库存，推荐可以刷新了。
+              </Text>
+              {currentFridgeItems.length > 0 ? (
+                <Text style={styles.inventoryText} numberOfLines={2}>
+                  当前库存：{currentFridgeItems.slice(0, 5).map((item) => item.displayName).join('、')}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.debugPanel}>
+          <Pressable onPress={() => setDebugOpen((open) => !open)} style={styles.debugHeader}>
+            <Text style={styles.debugTitle}>调试信息</Text>
+            <Ionicons
+              name={debugOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+              size={18}
+              color="#6b625b"
+            />
+          </Pressable>
+          {debugOpen ? (
+            <Text style={styles.debugText}>
+              {JSON.stringify({
+                scanId,
+                flowStatus,
+                photoStatus: photos.map((photo) => ({
+                  id: photo.id,
+                  source: photo.source,
+                  zoneKey: photo.zoneKey,
+                  selected: photo.selected,
+                  status: photo.status,
+                  storagePath: photo.storagePath,
+                  errorMessage: photo.errorMessage,
+                })),
+                photoResults,
+                selectedItemIds,
+                confirmedCount,
+                currentFridgeItems: currentFridgeItems.map((item) => ({
+                  id: item.id,
+                  ingredientKey: item.ingredientKey,
+                  displayName: item.displayName,
+                  quantityKind: item.quantityKind,
+                })),
+              }, null, 2)}
+            </Text>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <View style={styles.bottomNav}>
+        {bottomNavItems.map((item) => (
+          <View
+            key={item.key}
+            style={[
+              styles.bottomNavItem,
+              item.active && styles.bottomNavItemActive,
+            ]}
+          >
+            <Ionicons
+              name={item.icon}
+              size={24}
+              color={item.active ? '#c2652a' : '#7d746c'}
+            />
+            <Text
+              style={[
+                styles.bottomNavLabel,
+                item.active && styles.bottomNavLabelActive,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {flowStatus === 'recognizing' ? (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#ffffff" />
+            <Text style={styles.loadingTitle}>正在识别你的冰箱...</Text>
+            <Text style={styles.loadingText}>照片正在上传和分析，马上给你一份可确认清单。</Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#faf5ee',
+  },
+  container: {
+    gap: 18,
+    paddingBottom: 118,
+  },
+  topBar: {
+    alignItems: 'center',
+    borderBottomColor: '#e5ddd4',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 74,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    backgroundColor: '#fff8f1',
+  },
+  menuButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 42,
+    width: 42,
+  },
+  brand: {
+    color: '#b55f28',
+    flex: 1,
+    fontSize: 27,
+    fontWeight: '900',
+    letterSpacing: 0,
+    paddingLeft: 10,
+  },
+  avatar: {
+    alignItems: 'center',
+    borderColor: '#ffffff',
+    borderRadius: 22,
+    borderWidth: 2,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+    backgroundColor: '#17251f',
+  },
+  heroCopy: {
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 28,
+    paddingTop: 22,
+  },
+  title: {
+    color: '#2d2a26',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: '#70665d',
+    fontSize: 17,
+    lineHeight: 25,
+    maxWidth: 390,
+    textAlign: 'center',
+  },
+  scannerCard: {
+    paddingHorizontal: 22,
+  },
+  scannerImageFrame: {
+    borderColor: '#e1d7ce',
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 430,
+    overflow: 'hidden',
+    backgroundColor: '#ded7c8',
+    shadowColor: '#2d2119',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.14,
+    shadowRadius: 22,
+    elevation: 4,
+  },
+  scannerImage: {
+    height: '100%',
+    width: '100%',
+    backgroundColor: '#ded7c8',
+  },
+  scannerPlaceholder: {
+    flex: 1,
+    gap: 14,
+    justifyContent: 'center',
+    padding: 18,
+    backgroundColor: '#d6d0bf',
+  },
+  placeholderShelf: {
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 138,
+  },
+  placeholderCrate: {
+    borderColor: 'rgba(255,255,255,0.26)',
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+  },
+  placeholderLeaf: {
+    backgroundColor: '#6f8f52',
+  },
+  placeholderTomato: {
+    backgroundColor: '#b54333',
+  },
+  placeholderCitrus: {
+    backgroundColor: '#d89f43',
+  },
+  placeholderRice: {
+    backgroundColor: '#b48f64',
+  },
+  placeholderGreen: {
+    backgroundColor: '#527b53',
+  },
+  placeholderMilk: {
+    backgroundColor: '#e7e4d8',
+  },
+  scannerShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(35, 28, 22, 0.16)',
+  },
+  analysisPill: {
+    alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.72)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 18,
+    position: 'absolute',
+    right: 18,
+    top: 18,
+    backgroundColor: 'rgba(255, 248, 241, 0.94)',
+  },
+  liveDot: {
+    borderRadius: 6,
+    height: 11,
+    width: 11,
+    backgroundColor: '#c2652a',
+  },
+  analysisPillText: {
+    color: '#b55f28',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  guideBubble: {
+    borderColor: 'rgba(194, 101, 42, 0.58)',
+    borderRadius: 8,
+    borderWidth: 1,
+    left: 24,
+    maxWidth: 240,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    position: 'absolute',
+    top: 118,
+    backgroundColor: 'rgba(255, 248, 241, 0.94)',
+  },
+  guideBubbleTitle: {
+    color: '#3a302a',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  guideBubbleText: {
+    color: '#685e55',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  cameraControls: {
+    alignItems: 'center',
+    bottom: 26,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    left: 28,
+    position: 'absolute',
+    right: 28,
+  },
+  roundToolButton: {
+    alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.88)',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 70,
+    justifyContent: 'center',
+    width: 70,
+    backgroundColor: 'rgba(250, 245, 238, 0.92)',
+  },
+  roundToolButtonPressed: {
+    transform: [{ scale: 0.97 }],
+  },
+  scanButton: {
+    backgroundColor: 'rgba(255, 251, 245, 0.94)',
+  },
+  cameraButton: {
+    alignItems: 'center',
+    borderColor: '#fff8f1',
+    borderRadius: 999,
+    borderWidth: 7,
+    height: 112,
+    justifyContent: 'center',
+    width: 112,
+    backgroundColor: '#c2652a',
+  },
+  cameraButtonPressed: {
+    backgroundColor: '#a94f1e',
+    transform: [{ scale: 0.98 }],
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  photoPanel: {
+    gap: 14,
+    marginHorizontal: 22,
+    marginTop: 2,
+    padding: 16,
+    borderColor: '#e3dad0',
+    borderRadius: 8,
+    borderWidth: 1,
+    backgroundColor: '#fff9f3',
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sectionKicker: {
+    color: '#c2652a',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+  },
+  sectionTitle: {
+    color: '#332e29',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  sectionMeta: {
+    color: '#746b63',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  emptyPhotos: {
+    alignItems: 'center',
+    borderColor: '#ded5cc',
+    borderRadius: 8,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    gap: 7,
+    padding: 22,
+    backgroundColor: '#fffdf9',
+  },
+  emptyTitle: {
+    color: '#3d352f',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  emptyText: {
+    color: '#766d65',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  photoStrip: {
+    gap: 12,
+    paddingRight: 18,
+  },
+  photoCard: {
+    borderColor: '#ded5cc',
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+    width: 142,
+    backgroundColor: '#ffffff',
+  },
+  photoCardSelected: {
+    borderColor: '#1f5945',
+    borderWidth: 2,
+  },
+  photoCardError: {
+    borderColor: '#c94b3e',
+  },
+  photoPressable: {
+    height: 116,
+  },
+  thumbnail: {
+    height: '100%',
+    width: '100%',
+    backgroundColor: '#e3ded8',
+  },
+  photoStatusPill: {
+    alignItems: 'center',
+    borderRadius: 999,
+    bottom: 8,
+    flexDirection: 'row',
+    gap: 4,
+    left: 8,
+    minHeight: 25,
+    paddingHorizontal: 8,
+    position: 'absolute',
+    right: 8,
+    backgroundColor: 'rgba(255, 248, 241, 0.92)',
+  },
+  photoStatusText: {
+    color: '#4c4037',
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  photoDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(48, 40, 33, 0.48)',
+  },
+  photoControls: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'space-between',
+    minHeight: 38,
+    paddingHorizontal: 8,
+  },
+  photoZoneText: {
+    color: '#4d453e',
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  smallIconButton: {
+    alignItems: 'center',
+    height: 30,
+    justifyContent: 'center',
+    width: 30,
+  },
+  urlFallbackPanel: {
+    alignItems: 'center',
+    borderColor: '#e4dbd2',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 9,
+    padding: 12,
+    backgroundColor: '#fffdf9',
+  },
+  urlFallbackCopy: {
+    flexBasis: '100%',
+    gap: 2,
+  },
+  urlFallbackTitle: {
+    color: '#3a302a',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  urlFallbackText: {
+    color: '#746b63',
+    fontSize: 13,
+  },
+  urlInput: {
+    borderColor: '#d5cbc2',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#302a25',
+    flex: 1,
+    fontSize: 14,
+    minHeight: 42,
+    minWidth: 200,
+    paddingHorizontal: 11,
+    backgroundColor: '#ffffff',
+  },
+  urlButton: {
+    alignItems: 'center',
+    borderColor: '#bdd4c8',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 42,
+    paddingHorizontal: 13,
+    backgroundColor: '#eef7f1',
+  },
+  urlButtonPressed: {
+    backgroundColor: '#dceee5',
+  },
+  urlButtonText: {
+    color: '#1f5945',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  noticePanel: {
+    alignItems: 'center',
+    borderColor: '#edd49a',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 22,
+    padding: 12,
+    backgroundColor: '#fff8e4',
+  },
+  noticeText: {
+    color: '#795813',
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  errorPanel: {
+    alignItems: 'center',
+    borderColor: '#efc5bd',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 22,
+    padding: 12,
+    backgroundColor: '#fff1ee',
+  },
+  errorText: {
+    color: '#a33a2d',
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  resultsPanel: {
+    borderColor: '#e1d7ce',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 18,
+    marginHorizontal: 22,
+    padding: 20,
+    backgroundColor: '#fff8f1',
+    shadowColor: '#33251d',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  resultsHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  resultsTitle: {
+    color: '#332e29',
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 32,
+  },
+  resultsSubtitle: {
+    color: '#746b63',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  itemCountPill: {
+    borderColor: '#ead5c4',
+    borderRadius: 999,
+    borderWidth: 1,
+    color: '#b55f28',
+    fontSize: 13,
+    fontWeight: '900',
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#fff1e6',
+  },
+  detectedGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  detectedCard: {
+    borderColor: '#ddd4cb',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+    minHeight: 148,
+    padding: 14,
+    width: '47%',
+    backgroundColor: '#ffffff',
+  },
+  detectedCardSelected: {
+    borderColor: '#1f5945',
+    backgroundColor: '#f1f8f4',
+  },
+  detectedCardWeak: {
+    borderColor: '#e2b67a',
+  },
+  detectedCardPressed: {
+    transform: [{ scale: 0.99 }],
+  },
+  detectedIcon: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 54,
+    justifyContent: 'center',
+    width: 54,
+    backgroundColor: '#dc884d',
+  },
+  detectedName: {
+    color: '#2f2a25',
+    fontSize: 18,
+    fontWeight: '900',
+    lineHeight: 23,
+  },
+  detectedQuantity: {
+    color: '#746b63',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  detectedMetaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 'auto',
+  },
+  confidenceText: {
+    color: '#746b63',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  reviewBadge: {
+    borderRadius: 999,
+    color: '#7b5218',
+    fontSize: 12,
+    fontWeight: '900',
+    overflow: 'hidden',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: '#fff0ce',
+  },
+  manualCard: {
+    alignItems: 'center',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    backgroundColor: '#fffaf5',
+  },
+  manualIcon: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 54,
+    justifyContent: 'center',
+    width: 54,
+    backgroundColor: '#f4eee8',
+  },
+  manualTitle: {
+    color: '#332e29',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  manualText: {
+    color: '#81776e',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  confirmButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 9,
+    justifyContent: 'center',
+    minHeight: 58,
+    paddingHorizontal: 18,
+    backgroundColor: '#c2652a',
+    shadowColor: '#9d481d',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  confirmButtonPressed: {
+    backgroundColor: '#a94f1e',
+    transform: [{ scale: 0.99 }],
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  successPanel: {
+    alignItems: 'center',
+    borderColor: '#bdd8c8',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 13,
+    marginHorizontal: 22,
+    padding: 16,
+    backgroundColor: '#edf8f1',
+  },
+  successCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  successTitle: {
+    color: '#1f5945',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  successText: {
+    color: '#53675d',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  inventoryText: {
+    color: '#3e5349',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 19,
+  },
+  debugPanel: {
+    borderColor: '#e1d8cf',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginHorizontal: 22,
+    backgroundColor: '#fffdf9',
+  },
+  debugHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  debugTitle: {
+    color: '#6b625b',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  debugText: {
+    borderTopColor: '#eee7df',
+    borderTopWidth: 1,
+    color: '#314039',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    lineHeight: 16,
+    padding: 12,
+  },
+  bottomNav: {
+    alignItems: 'center',
+    borderTopColor: '#e4dcd3',
+    borderTopWidth: 1,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    left: 0,
+    minHeight: 92,
+    paddingBottom: 14,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    position: 'absolute',
+    right: 0,
+    backgroundColor: 'rgba(255, 250, 245, 0.98)',
+  },
+  bottomNavItem: {
+    alignItems: 'center',
+    borderRadius: 8,
+    gap: 4,
+    minHeight: 66,
+    minWidth: 74,
+    justifyContent: 'center',
+  },
+  bottomNavItemActive: {
+    backgroundColor: '#fbecdf',
+  },
+  bottomNavLabel: {
+    color: '#7d746c',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  bottomNavLabelActive: {
+    color: '#c2652a',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(39, 31, 25, 0.58)',
+  },
+  loadingBox: {
+    alignItems: 'center',
+    borderRadius: 8,
+    gap: 10,
+    maxWidth: 320,
+    padding: 24,
+    backgroundColor: '#1f5945',
+  },
+  loadingTitle: {
+    color: '#ffffff',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  loadingText: {
+    color: '#e8f5ee',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+})
