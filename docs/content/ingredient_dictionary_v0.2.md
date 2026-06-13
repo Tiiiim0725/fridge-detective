@@ -23,6 +23,21 @@
 | `is_basic_pantry` | 是否属于默认假设用户拥有的基础 pantry；v0.2 只有 `salt` / `sugar`。 |
 | `is_fridge_recognition_target` | 是否适合作为拍照识别候选。 |
 
+## Alias Matching v0.2
+
+`ingredients.aliases` 用于用户自由输入 pantry / 食材，以及 AI `rawName` 标准化。菜谱、库存和识别草稿仍然必须落到标准 `ingredient_key`，不要把自由文本直接当作正式食材 key 保存。
+
+建议匹配顺序：
+
+1. `ingredient_key`
+2. `zh_name`
+3. `en_name`
+4. `aliases`
+
+如果匹配不到标准食材，不要直接写入正式 ingredient dictionary 或 `fridge_items`。前端应提示用户换个说法、手动选择已有食材，或暂时跳过。
+
+Aliases 应尽量覆盖中文常见名、英文常见名、英文复数、北美超市叫法和用户口语叫法；同一个 alias 不应放到多个 `ingredient_key` 下。
+
 ## Pantry Basic Flag v0.2
 
 `content_tier = P0` 只表示内容建设优先级，不表示用户默认拥有该食材。
@@ -271,6 +286,9 @@
 | 椰奶 | `coconut_milk` |
 | 奶油 | `cream` |
 | 酸奶油 | `sour_cream` |
+| 牛奶 | `milk` |
+| 酸奶 | `yogurt` |
+| 奶酪 | `cheese` |
 
 ### P1 香料 / 干料
 

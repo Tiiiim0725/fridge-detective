@@ -184,18 +184,25 @@ export default function DevFridgeRecognitionCheck() {
     () => photos.filter((photo) => photo.selected),
     [photos]
   )
+  const confirmableItems = useMemo(
+    () => recognizedItems.filter((item) => item.ingredientKey !== null),
+    [recognizedItems]
+  )
   const primaryPreviewUri = selectedPhotos[0]?.localUri ?? photos[0]?.localUri ?? null
   const scannerImageUri = primaryPreviewUri ?? scannerPreviewImageUrl
   const selectedItemCount = selectedItemIds.length
+  const unmatchedItemCount = recognizedItems.length - confirmableItems.length
   const currentGuideStep = getGuideStep(photos.length)
   const isBusy = flowStatus === 'recognizing' || flowStatus === 'confirming'
   const scannerLabel = flowStatus === 'recognizing'
     ? 'AI 正在分析'
-    : recognizedItems.length > 0
-      ? `发现 ${recognizedItems.length} 个物品`
-      : '准备扫描'
+    : confirmableItems.length > 0
+      ? `发现 ${confirmableItems.length} 个食材`
+      : recognizedItems.length > 0
+        ? '未匹配到标准食材'
+        : '准备扫描'
   const resultItemsForPreview = recognizedItems.length > 0
-    ? recognizedItems.map((item) => ({
+    ? confirmableItems.map((item) => ({
         id: item.id,
         displayName: item.displayName,
         quantityLabel: formatQuantity(item),
@@ -359,11 +366,17 @@ export default function DevFridgeRecognitionCheck() {
       setScanId(result.scanId)
       setPhotoResults(result.photoResults)
       setRecognizedItems(result.items)
-      setSelectedItemIds(result.items.map((item) => item.id))
+      setSelectedItemIds(
+        result.items
+          .filter((item) => item.ingredientKey !== null)
+          .map((item) => item.id)
+      )
       setFlowStatus('ready')
 
       if (result.items.length === 0) {
         setErrorMessage('AI 没有发现可确认的食材。可以换一张更清楚的照片再试。')
+      } else if (result.items.every((item) => item.ingredientKey === null)) {
+        setErrorMessage('AI 识别到了一些内容，但没有匹配到标准食材字典，请换一张更清楚的照片再试。')
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
@@ -582,17 +595,23 @@ export default function DevFridgeRecognitionCheck() {
           <View style={styles.resultsHeader}>
             <View>
               <Text style={styles.resultsTitle}>
-                {recognizedItems.length > 0 ? 'AI 发现了这些食材' : '在储藏室中检测到'}
+                {confirmableItems.length > 0
+                  ? 'AI 发现了这些食材'
+                  : recognizedItems.length > 0
+                    ? '未匹配到标准食材'
+                    : '在储藏室中检测到'}
               </Text>
               <Text style={styles.resultsSubtitle}>
-                {recognizedItems.length > 0
+                {confirmableItems.length > 0
                   ? '默认全选，点一下可以取消误识别项。'
+                  : recognizedItems.length > 0
+                    ? `${unmatchedItemCount} 个未匹配项已保留在调试信息中，不会进入正式库存。`
                   : '拍照识别后，这里会替换成真实候选。'}
               </Text>
             </View>
             <Text style={styles.itemCountPill}>
               {recognizedItems.length > 0
-                ? `${selectedItemCount}/${recognizedItems.length}`
+                ? `${selectedItemCount}/${confirmableItems.length}`
                 : '预览'}
             </Text>
           </View>
@@ -608,11 +627,11 @@ export default function DevFridgeRecognitionCheck() {
               return (
                 <Pressable
                   key={item.id}
-                  disabled={recognizedItems.length === 0}
+                  disabled={confirmableItems.length === 0}
                   onPress={() => toggleItem(item.id)}
                   style={({ pressed }) => [
                     styles.detectedCard,
-                    selected && recognizedItems.length > 0 && styles.detectedCardSelected,
+                    selected && confirmableItems.length > 0 && styles.detectedCardSelected,
                     weak && styles.detectedCardWeak,
                     pressed && styles.detectedCardPressed,
                   ]}
@@ -649,7 +668,7 @@ export default function DevFridgeRecognitionCheck() {
           <Pressable
             disabled={
               flowStatus === 'confirming'
-              || recognizedItems.length === 0
+              || confirmableItems.length === 0
               || selectedItemIds.length === 0
             }
             onPress={confirmSelectedItems}
@@ -658,7 +677,7 @@ export default function DevFridgeRecognitionCheck() {
               pressed && flowStatus !== 'confirming' && styles.confirmButtonPressed,
               (
                 flowStatus === 'confirming'
-                || recognizedItems.length === 0
+                || confirmableItems.length === 0
                 || selectedItemIds.length === 0
               ) && styles.disabledButton,
             ]}
