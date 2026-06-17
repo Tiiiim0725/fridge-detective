@@ -272,6 +272,10 @@ export interface SavePantryItemsInput {
   pantryItemKeys: PantryItemKey[]
 }
 
+export interface AddPantryItemsInput {
+  pantryItemKeys: PantryItemKey[]
+}
+
 // ============================================================================
 // 5.4 Option Dictionary Types
 // ============================================================================

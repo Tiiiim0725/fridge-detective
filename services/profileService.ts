@@ -14,6 +14,7 @@ import type {
   SaveUserPreferencesInput,
   SaveKitchenEquipmentInput,
   SavePantryItemsInput,
+  AddPantryItemsInput,
   CuisineKey,
   CuisinePreferenceKey,
   MealStyleKey,
@@ -687,6 +688,21 @@ export async function savePantryItems(input: SavePantryItemsInput): Promise<Pant
   }
 
   return inserted.map(mapPantryItemRow)
+}
+
+/**
+ * Add pantry items without removing existing pantry selections.
+ */
+export async function addPantryItems(input: AddPantryItemsInput): Promise<PantryItem[]> {
+  const existingItems = await getPantryItems()
+  const existingKeys = existingItems.map((item) => item.pantryItemKey)
+
+  return savePantryItems({
+    pantryItemKeys: Array.from(new Set([
+      ...existingKeys,
+      ...(input.pantryItemKeys ?? []),
+    ])),
+  })
 }
 
 // ============================================================================

@@ -7,6 +7,7 @@ import {
   normalizeIngredientName,
   normalizeRecognizedIngredients,
 } from '@/services/ingredientService'
+import { isPantryIngredientKey } from '@/services/pantryItemService'
 import { isValidFridgeQuantity } from '@/types/fridge'
 import type {
   AddFridgeScanPhotoInput,
@@ -334,6 +335,11 @@ async function ensurePhotoBelongsToUser(photoId: string, scanId: string, userId:
 async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<FridgeItem> {
   const lastSeenAt = input.lastSeenAt ?? new Date().toISOString()
   const ingredientKey = normalizeOptionalIngredientKey(input.ingredientKey)
+
+  if (await isPantryIngredientKey(ingredientKey)) {
+    throw new Error('Pantry items should be saved to pantry_items, not fridge_items.')
+  }
+
   const payload = {
     user_id: input.userId,
     ingredient_key: ingredientKey,
@@ -609,6 +615,18 @@ export async function confirmFridgeScanItems(input: ConfirmFridgeScanItemsInput)
 
   if (rows.length !== requestedItemIds.length) {
     throw new Error('Only matched and accessible fridge scan items can be confirmed.')
+  }
+
+  const pantryRows: FridgeScanItemRow[] = []
+
+  for (const row of rows) {
+    if (await isPantryIngredientKey(row.ingredient_key)) {
+      pantryRows.push(row)
+    }
+  }
+
+  if (pantryRows.length > 0) {
+    throw new Error('Pantry items should be added to pantry, not confirmed as fridge items.')
   }
 
   const { data: updatedScanItems, error: updateError } = await supabase

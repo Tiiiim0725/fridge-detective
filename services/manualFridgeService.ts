@@ -1,14 +1,16 @@
 // services/manualFridgeService.ts
-// Manual fridge add orchestration for scan-bound and standalone manual items.
+// Manual add orchestration for fridge inventory and pantry candidates.
 
 import { addManualScanItem, saveConfirmedFridgeItems } from '@/services/fridgeService'
 import { normalizeIngredientName } from '@/services/ingredientService'
+import { addPantryItems } from '@/services/profileService'
 import { isValidFridgeQuantity } from '@/types/fridge'
 import type {
   FridgeItem,
   FridgeQuantityKind,
   FridgeScanItem,
 } from '@/types/fridge'
+import type { PantryItem, PantryItemKey } from '@/types/profile'
 
 export interface AddManualFridgeItemInput {
   scanId?: string | null
@@ -32,6 +34,15 @@ export interface ManualFridgeLocalCandidate {
   createdAt: string
 }
 
+export interface ManualPantryLocalCandidate {
+  id: string
+  ingredientKey: PantryItemKey
+  rawName: string
+  displayName: string
+  source: 'manual'
+  createdAt: string
+}
+
 export type AddManualFridgeItemResult =
   | {
       kind: 'scan_item'
@@ -40,6 +51,10 @@ export type AddManualFridgeItemResult =
   | {
       kind: 'local_candidate'
       item: ManualFridgeLocalCandidate
+    }
+  | {
+      kind: 'pantry_candidate'
+      item: ManualPantryLocalCandidate
     }
   | {
       kind: 'unmatched'
@@ -63,8 +78,8 @@ function normalizeOptionalId(value?: string | null): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
-function makeLocalCandidateId(): string {
-  return `manual-local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+function makeLocalCandidateId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 function normalizeManualQuantity(
@@ -126,6 +141,30 @@ export async function addManualFridgeItem(
     }
   }
 
+  const ingredient = await normalizeIngredientName(rawName)
+
+  if (!ingredient) {
+    return {
+      kind: 'unmatched',
+      rawName,
+      message: `没有在食材字典里找到“${rawName}”，可以换个常见说法再试。`,
+    }
+  }
+
+  if (ingredient.isPantryItem) {
+    return {
+      kind: 'pantry_candidate',
+      item: {
+        id: makeLocalCandidateId('manual-pantry'),
+        ingredientKey: ingredient.ingredientKey as PantryItemKey,
+        rawName,
+        displayName: input.displayName ?? ingredient.zhName ?? ingredient.enName,
+        source: 'manual',
+        createdAt: new Date().toISOString(),
+      },
+    }
+  }
+
   const scanId = normalizeOptionalId(input.scanId)
 
   if (scanId) {
@@ -138,27 +177,9 @@ export async function addManualFridgeItem(
       quantityCount: input.quantityCount,
     })
 
-    if (!scanItem.ingredientKey) {
-      return {
-        kind: 'unmatched',
-        rawName,
-        message: `没有在食材字典里找到“${rawName}”，可以换个常见说法再试。`,
-      }
-    }
-
     return {
       kind: 'scan_item',
       item: scanItem,
-    }
-  }
-
-  const ingredient = await normalizeIngredientName(rawName)
-
-  if (!ingredient) {
-    return {
-      kind: 'unmatched',
-      rawName,
-      message: `没有在食材字典里找到“${rawName}”，可以换个常见说法再试。`,
     }
   }
 
@@ -168,7 +189,7 @@ export async function addManualFridgeItem(
   return {
     kind: 'local_candidate',
     item: {
-      id: makeLocalCandidateId(),
+      id: makeLocalCandidateId('manual-local'),
       ingredientKey: ingredient.ingredientKey,
       rawName,
       displayName: input.displayName ?? ingredient.zhName ?? ingredient.enName,
@@ -198,4 +219,16 @@ export async function confirmManualFridgeItems(
     quantityCount: item.quantityCount,
     source: 'manual',
   })))
+}
+
+export async function confirmManualPantryItems(
+  items: ManualPantryLocalCandidate[]
+): Promise<PantryItem[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  return addPantryItems({
+    pantryItemKeys: items.map((item) => item.ingredientKey),
+  })
 }

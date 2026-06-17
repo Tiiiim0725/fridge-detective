@@ -29,6 +29,7 @@ values
   ('tortilla', '玉米饼', 'Tortilla', 'grain', array['玉米饼', '卷饼皮', 'tortilla']::text[], 'piece', false, true, true, 1080, 'P1', 'staple_carbs', 'pantry', false, true),
   ('oats', '燕麦', 'Oats', 'grain', array['燕麦', '燕麦片', 'oats', 'rolled oats']::text[], 'cup', false, true, true, 1090, 'P1', 'staple_carbs', 'pantry', false, false),
   ('ramen_noodles', '拉面', 'Ramen Noodles', 'grain', array['拉面', '日式拉面', 'ramen', 'ramen noodles']::text[], 'serving', false, true, true, 1100, 'P1', 'staple_carbs', 'pantry', false, false),
+  ('instant_noodles', '方便面', 'Instant Noodles', 'grain', array['方便面', '泡面', '速食面', 'instant noodles', 'instant noodle', 'ramen packet']::text[], 'serving', false, true, true, 1105, 'P1', 'staple_carbs', 'pantry', false, false),
   ('udon_noodles', '乌冬面', 'Udon Noodles', 'grain', array['乌冬面', '乌冬', 'udon', 'udon noodles']::text[], 'serving', true, false, true, 1110, 'P1', 'staple_carbs', 'fridge', false, true),
 
   ('egg', '鸡蛋', 'Egg', 'protein', array['鸡蛋', '蛋', '鸡蛋儿', 'egg', 'eggs', 'large eggs']::text[], 'piece', true, false, true, 2010, 'P0', 'egg_soy', 'fridge', false, true),
@@ -91,6 +92,7 @@ values
   ('edamame', '毛豆', 'Edamame', 'vegetable', array['毛豆', 'edamame']::text[], 'gram', true, false, true, 3290, 'P1', 'beans_peas', 'freezer', false, true),
   ('bean_sprouts', '豆芽', 'Bean Sprouts', 'vegetable', array['豆芽', '绿豆芽', 'bean sprouts']::text[], 'gram', true, false, true, 3300, 'P1', 'sprout', 'fridge', false, true),
   ('avocado', '牛油果', 'Avocado', 'vegetable', array['牛油果', '鳄梨', 'avocado']::text[], 'piece', true, false, true, 3310, 'P1', 'fruiting_vegetable', 'room_temp', false, true),
+  ('frozen_vegetables', '冷冻蔬菜', 'Frozen Vegetables', 'vegetable', array['冷冻蔬菜', '冷冻混合蔬菜', '速冻蔬菜', 'frozen vegetables', 'frozen veggies', 'frozen mixed vegetables']::text[], 'gram', false, true, true, 3315, 'P1', 'frozen_vegetable', 'freezer', false, false),
   ('frozen_mixed_vegetables', '冷冻混合蔬菜', 'Frozen Mixed Vegetables', 'vegetable', array['冷冻混合蔬菜', '冷冻蔬菜', 'frozen mixed vegetables']::text[], 'gram', false, true, true, 3320, 'P1', 'frozen_vegetable', 'freezer', false, false),
   ('frozen_broccoli', '冷冻西兰花', 'Frozen Broccoli', 'vegetable', array['冷冻西兰花', 'frozen broccoli']::text[], 'gram', false, true, true, 3330, 'P1', 'frozen_vegetable', 'freezer', false, false),
   ('frozen_spinach', '冷冻菠菜', 'Frozen Spinach', 'vegetable', array['冷冻菠菜', 'frozen spinach']::text[], 'gram', false, true, true, 3340, 'P1', 'frozen_vegetable', 'freezer', false, false),
@@ -185,6 +187,7 @@ values
   ('chili_flakes', '辣椒碎', 'Chili Flakes', 'seasoning', array['辣椒碎', '干辣椒碎', 'chili flakes']::text[], 'tsp', false, true, true, 5460, 'P1', 'spice', 'pantry', false, false),
   ('cumin', '孜然', 'Cumin', 'seasoning', array['孜然', '孜然粉', 'cumin']::text[], 'tsp', false, true, true, 5470, 'P1', 'spice', 'pantry', false, false),
   ('curry_powder', '咖喱粉', 'Curry Powder', 'seasoning', array['咖喱粉', 'curry powder']::text[], 'tsp', false, true, true, 5480, 'P1', 'spice', 'pantry', false, false),
+  ('chili_crisp', '油泼辣子', 'Chili Crisp', 'pantry', array['油泼辣子', '辣椒脆', '辣椒酥', '老干妈', 'chili crisp', 'chilli crisp', 'crispy chili oil']::text[], 'tbsp', false, true, true, 5485, 'P1', 'asian_sauce', 'pantry', false, false),
   ('five_spice_powder', '五香粉', 'Five Spice Powder', 'seasoning', array['五香粉', 'five spice powder']::text[], 'tsp', false, true, true, 5490, 'P1', 'spice', 'pantry', false, false),
   ('sichuan_peppercorn_powder', '花椒粉', 'Sichuan Peppercorn Powder', 'seasoning', array['花椒粉', '花椒面', 'sichuan peppercorn powder']::text[], 'tsp', false, true, true, 5500, 'P1', 'spice', 'pantry', false, false),
   ('italian_seasoning', '意大利综合香草', 'Italian Seasoning', 'seasoning', array['意大利综合香草', '意式香草', 'italian seasoning']::text[], 'tsp', false, true, true, 5510, 'P1', 'herb_dried', 'pantry', false, false),
@@ -204,7 +207,8 @@ values
   ('beef_broth', '牛肉汤', 'Beef Broth', 'pantry', array['牛肉汤', '牛肉高汤', 'beef broth']::text[], 'ml', false, true, true, 5650, 'P1', 'broth', 'pantry', false, false),
   ('canned_chickpeas', '罐头鹰嘴豆', 'Canned Chickpeas', 'pantry', array['罐头鹰嘴豆', '鹰嘴豆罐头', 'canned chickpeas']::text[], 'gram', false, true, true, 5660, 'P1', 'canned_beans', 'canned', false, false),
   ('canned_black_beans', '罐头黑豆', 'Canned Black Beans', 'pantry', array['罐头黑豆', '黑豆罐头', 'canned black beans']::text[], 'gram', false, true, true, 5670, 'P1', 'canned_beans', 'canned', false, false),
-  ('canned_kidney_beans', '罐头红腰豆', 'Canned Kidney Beans', 'pantry', array['罐头红腰豆', '红腰豆罐头', 'canned kidney beans']::text[], 'gram', false, true, true, 5680, 'P1', 'canned_beans', 'canned', false, false)
+  ('canned_kidney_beans', '罐头红腰豆', 'Canned Kidney Beans', 'pantry', array['罐头红腰豆', '红腰豆罐头', 'canned kidney beans']::text[], 'gram', false, true, true, 5680, 'P1', 'canned_beans', 'canned', false, false),
+  ('frozen_dumplings', '冷冻饺子', 'Frozen Dumplings', 'pantry', array['冷冻饺子', '速冻饺子', '饺子', 'frozen dumplings', 'dumplings']::text[], 'piece', false, true, true, 5690, 'P1', 'frozen_ready_food', 'freezer', false, false)
 on conflict (ingredient_key) do update set
   zh_name = excluded.zh_name,
   en_name = excluded.en_name,

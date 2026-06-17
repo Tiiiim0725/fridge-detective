@@ -15,6 +15,12 @@ import {
 
 import { normalizeIngredientName } from '@/services/ingredientService'
 import {
+  addManualFridgeItem,
+  confirmManualFridgeItems,
+  type ManualFridgeLocalCandidate,
+} from '@/services/manualFridgeService'
+import { normalizePantryItemName } from '@/services/pantryItemService'
+import {
   ensureProfile,
   getOnboardingContext,
   saveKitchenEquipment,
@@ -125,6 +131,8 @@ export default function DevUserProfileCheck() {
   const [pantryInput, setPantryInput] = useState('')
   const [avoidInput, setAvoidInput] = useState('')
   const [matchedPantry, setMatchedPantry] = useState<Ingredient | null>(null)
+  const [pantryFridgeCandidate, setPantryFridgeCandidate] =
+    useState<ManualFridgeLocalCandidate | null>(null)
 
   const isBusy = status === 'loading' || status === 'saving'
   const selectedTraditionalCuisineCount = useMemo(
@@ -227,9 +235,31 @@ export default function DevUserProfileCheck() {
 
     setErrorMessage(null)
     setMatchedPantry(null)
+    setPantryFridgeCandidate(null)
 
     try {
+      const pantryIngredient = await normalizePantryItemName(raw)
+
+      if (pantryIngredient) {
+        setPantryKeys((current) => unique([...current, pantryIngredient.ingredientKey as PantryItemKey]))
+        setMatchedPantry(pantryIngredient)
+        setPantryInput('')
+        return
+      }
+
       const ingredient = await normalizeIngredientName(raw)
+
+      if (ingredient && !ingredient.isPantryItem) {
+        const result = await addManualFridgeItem({
+          rawName: raw,
+          quantityKind: 'unknown',
+        })
+
+        if (result.kind === 'local_candidate') {
+          setPantryFridgeCandidate(result.item)
+          return
+        }
+      }
 
       if (!ingredient || !ingredient.isPantryItem) {
         setErrorMessage(`没有匹配到可保存的 pantry 食材：“${raw}”。可以换个常见说法再试。`)
@@ -242,6 +272,32 @@ export default function DevUserProfileCheck() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
     }
+  }
+
+  async function confirmPantryFridgeCandidate() {
+    if (!pantryFridgeCandidate) {
+      return
+    }
+
+    setStatus('saving')
+    setErrorMessage(null)
+
+    try {
+      await confirmManualFridgeItems([pantryFridgeCandidate])
+      setSuccessMessage(`已把 ${pantryFridgeCandidate.displayName} 加入冰箱库存。`)
+      setPantryInput('')
+      setPantryFridgeCandidate(null)
+      setStatus('success')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+      setStatus('error')
+    }
+  }
+
+  function dismissPantryFridgeCandidate() {
+    setPantryInput('')
+    setPantryFridgeCandidate(null)
+    setErrorMessage(null)
   }
 
   async function addAvoidIngredient() {
@@ -533,6 +589,32 @@ export default function DevUserProfileCheck() {
           </View>
           {matchedPantry ? (
             <Text style={styles.matchText}>已匹配：{matchedPantry.zhName} / {matchedPantry.ingredientKey}</Text>
+          ) : null}
+          {pantryFridgeCandidate ? (
+            <View style={styles.fridgeCandidatePrompt}>
+              <View style={styles.fridgeCandidateCopy}>
+                <Text style={styles.fridgeCandidateTitle}>这个更像冰箱食材</Text>
+                <Text style={styles.fridgeCandidateText}>
+                  {pantryFridgeCandidate.displayName} 不会保存到常备 pantry。要加入冰箱库存吗？
+                </Text>
+              </View>
+              <View style={styles.fridgeCandidateActions}>
+                <Pressable
+                  disabled={isBusy}
+                  onPress={dismissPantryFridgeCandidate}
+                  style={styles.fridgeCandidateSecondaryButton}
+                >
+                  <Text style={styles.fridgeCandidateSecondaryText}>不加入</Text>
+                </Pressable>
+                <Pressable
+                  disabled={isBusy}
+                  onPress={confirmPantryFridgeCandidate}
+                  style={styles.fridgeCandidatePrimaryButton}
+                >
+                  <Text style={styles.fridgeCandidatePrimaryText}>加入冰箱</Text>
+                </Pressable>
+              </View>
+            </View>
           ) : null}
           <View style={styles.pillWrap}>
             {pantryKeys
@@ -870,6 +952,59 @@ const styles = StyleSheet.create({
     color: '#1f5945',
     fontSize: 13,
     fontWeight: '800',
+  },
+  fridgeCandidatePrompt: {
+    borderColor: '#e2b67a',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    padding: 14,
+    backgroundColor: '#fff4e8',
+  },
+  fridgeCandidateCopy: {
+    gap: 4,
+  },
+  fridgeCandidateTitle: {
+    color: '#3a3029',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  fridgeCandidateText: {
+    color: '#75685f',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  fridgeCandidateActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  fridgeCandidatePrimaryButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 42,
+    backgroundColor: selectedColor,
+  },
+  fridgeCandidatePrimaryText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  fridgeCandidateSecondaryButton: {
+    alignItems: 'center',
+    borderColor: '#ddd4cb',
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 42,
+    backgroundColor: '#ffffff',
+  },
+  fridgeCandidateSecondaryText: {
+    color: '#5f534b',
+    fontSize: 13,
+    fontWeight: '900',
   },
   errorPanel: {
     alignItems: 'center',
