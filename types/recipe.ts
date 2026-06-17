@@ -16,6 +16,10 @@ export type IngredientCategoryKey =
   | 'sweetener'
   | 'sauce'
 
+export type IngredientContentTier = 'P0' | 'P1' | 'P2'
+
+export type IngredientStorageType = 'fridge' | 'freezer' | 'pantry' | 'canned' | 'room_temp'
+
 export type RecipeCuisineKey = 'chinese' | 'western' | 'korean' | 'japanese' | 'fusion'
 
 export type RecipeDifficultyKey = 'easy' | 'medium' | 'hard'
@@ -60,6 +64,11 @@ export interface Ingredient {
   isPantryItem: boolean
   isActive: boolean
   sortOrder: number | null
+  contentTier?: IngredientContentTier | null
+  subcategoryKey?: string | null
+  storageType?: IngredientStorageType | null
+  isBasicPantry?: boolean
+  isFridgeRecognitionTarget?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -209,3 +218,13 @@ export const RECIPE_SCENE_KEYS: RecipeSceneKey[] = [
 ]
 
 export const UNIT_KEYS: UnitKey[] = ['piece', 'gram', 'ml', 'tbsp', 'tsp', 'cup', 'serving', 'pinch']
+
+export const INGREDIENT_CONTENT_TIERS: IngredientContentTier[] = ['P0', 'P1', 'P2']
+
+export const INGREDIENT_STORAGE_TYPES: IngredientStorageType[] = [
+  'fridge',
+  'freezer',
+  'pantry',
+  'canned',
+  'room_temp',
+]

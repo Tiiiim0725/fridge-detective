@@ -473,8 +473,8 @@ export async function saveRecognizedScanItems(input: SaveRecognizedScanItemsInpu
       user_id: authUser.userId,
       ingredient_key: normalized?.ingredientKey ?? null,
       raw_name: item.rawName,
-      display_name: item.displayName
-        ?? normalized?.ingredient?.zhName
+      display_name: normalized?.ingredient?.zhName
+        ?? item.displayName
         ?? normalized?.ingredient?.enName
         ?? item.rawName,
       quantity_kind: quantity.quantityKind,
@@ -585,8 +585,9 @@ export async function getScanItems(scanId: string): Promise<FridgeScanItem[]> {
 
 export async function confirmFridgeScanItems(input: ConfirmFridgeScanItemsInput): Promise<FridgeItem[]> {
   const authUser = await ensureAuthUser()
+  const requestedItemIds = Array.from(new Set(input.itemIds))
 
-  if (input.itemIds.length === 0) {
+  if (requestedItemIds.length === 0) {
     return []
   }
 
@@ -595,7 +596,8 @@ export async function confirmFridgeScanItems(input: ConfirmFridgeScanItemsInput)
     .select('*')
     .eq('user_id', authUser.userId)
     .eq('scan_id', input.scanId)
-    .in('id', input.itemIds)
+    .in('id', requestedItemIds)
+    .not('ingredient_key', 'is', null)
     .in('status', ['detected', 'confirmed', 'edited'])
     .order('created_at', { ascending: true })
 
@@ -605,8 +607,8 @@ export async function confirmFridgeScanItems(input: ConfirmFridgeScanItemsInput)
 
   const rows = (scanItems ?? []) as FridgeScanItemRow[]
 
-  if (rows.length === 0) {
-    return []
+  if (rows.length !== requestedItemIds.length) {
+    throw new Error('Only matched and accessible fridge scan items can be confirmed.')
   }
 
   const { data: updatedScanItems, error: updateError } = await supabase
@@ -629,9 +631,15 @@ export async function confirmFridgeScanItems(input: ConfirmFridgeScanItemsInput)
   const lastSeenAt = new Date().toISOString()
 
   for (const scanItem of rows) {
+    const ingredientKey = scanItem.ingredient_key
+
+    if (!ingredientKey) {
+      throw new Error('Only matched fridge scan items can be saved to fridge items.')
+    }
+
     savedItems.push(await saveActiveFridgeItem({
       userId: authUser.userId,
-      ingredientKey: scanItem.ingredient_key,
+      ingredientKey,
       rawName: scanItem.raw_name,
       displayName: scanItem.display_name,
       quantityKind: scanItem.quantity_kind as FridgeQuantityKind,
