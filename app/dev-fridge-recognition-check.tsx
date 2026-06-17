@@ -18,10 +18,16 @@ import {
   getCurrentFridgeItems,
 } from '@/services/fridgeService'
 import {
+  addManualFridgeItem,
+  confirmManualFridgeItems,
+  type ManualFridgeLocalCandidate,
+} from '@/services/manualFridgeService'
+import {
   FRIDGE_PHOTO_GUIDE_STEPS,
   type FridgeItem,
   type FridgePhotoGuideStep,
   type FridgePhotoZoneKey,
+  type FridgeQuantityKind,
   type FridgeScanItem,
 } from '@/types/fridge'
 
@@ -54,6 +60,7 @@ type PreviewIngredient = {
   displayName: string
   quantityLabel: string
   icon: IoniconName
+  source: 'preview' | 'scan' | 'manual'
 }
 
 const fallbackGuideStep: FridgePhotoGuideStep = {
@@ -70,18 +77,21 @@ const mockIngredientsForPreview: PreviewIngredient[] = [
     displayName: '传家宝番茄',
     quantityLabel: '示例识别',
     icon: 'restaurant-outline',
+    source: 'preview',
   },
   {
     id: 'preview-egg',
     displayName: '农场鸡蛋',
     quantityLabel: '半打',
     icon: 'ellipse-outline',
+    source: 'preview',
   },
   {
     id: 'preview-pepper',
     displayName: '甜椒',
     quantityLabel: '拍照后替换',
     icon: 'leaf-outline',
+    source: 'preview',
   },
 ]
 
@@ -110,6 +120,18 @@ function getGuideStep(index: number): FridgePhotoGuideStep {
 }
 
 function formatQuantity(item: FridgeScanItem): string {
+  if (item.quantityKind === 'count' && typeof item.quantityCount === 'number') {
+    return `${item.quantityCount} 个`
+  }
+
+  if (item.quantityKind === 'text' && item.quantityText) {
+    return item.quantityText
+  }
+
+  return '数量待确认'
+}
+
+function formatManualQuantity(item: ManualFridgeLocalCandidate): string {
   if (item.quantityKind === 'count' && typeof item.quantityCount === 'number') {
     return `${item.quantityCount} 个`
   }
@@ -179,6 +201,10 @@ export default function DevFridgeRecognitionCheck() {
   const [currentFridgeItems, setCurrentFridgeItems] = useState<FridgeItem[]>([])
   const [debugOpen, setDebugOpen] = useState(false)
   const [urlFallback, setUrlFallback] = useState('')
+  const [localManualItems, setLocalManualItems] = useState<ManualFridgeLocalCandidate[]>([])
+  const [manualName, setManualName] = useState('')
+  const [manualQuantityText, setManualQuantityText] = useState('')
+  const [manualAdding, setManualAdding] = useState(false)
 
   const selectedPhotos = useMemo(
     () => photos.filter((photo) => photo.selected),
@@ -188,26 +214,44 @@ export default function DevFridgeRecognitionCheck() {
     () => recognizedItems.filter((item) => item.ingredientKey !== null),
     [recognizedItems]
   )
+  const selectableItemIds = useMemo(
+    () => [
+      ...confirmableItems.map((item) => item.id),
+      ...localManualItems.map((item) => item.id),
+    ],
+    [confirmableItems, localManualItems]
+  )
   const primaryPreviewUri = selectedPhotos[0]?.localUri ?? photos[0]?.localUri ?? null
   const scannerImageUri = primaryPreviewUri ?? scannerPreviewImageUrl
-  const selectedItemCount = selectedItemIds.length
+  const selectedItemCount = selectedItemIds.filter((id) => selectableItemIds.includes(id)).length
+  const confirmableItemCount = selectableItemIds.length
   const unmatchedItemCount = recognizedItems.length - confirmableItems.length
   const currentGuideStep = getGuideStep(photos.length)
-  const isBusy = flowStatus === 'recognizing' || flowStatus === 'confirming'
+  const isBusy = flowStatus === 'recognizing' || flowStatus === 'confirming' || manualAdding
   const scannerLabel = flowStatus === 'recognizing'
     ? 'AI 正在分析'
-    : confirmableItems.length > 0
-      ? `发现 ${confirmableItems.length} 个食材`
+    : confirmableItemCount > 0
+      ? `发现 ${confirmableItemCount} 个食材`
       : recognizedItems.length > 0
         ? '未匹配到标准食材'
         : '准备扫描'
-  const resultItemsForPreview = recognizedItems.length > 0
-    ? confirmableItems.map((item) => ({
+  const resultItemsForPreview = confirmableItemCount > 0 || recognizedItems.length > 0
+    ? [
+      ...confirmableItems.map((item) => ({
         id: item.id,
         displayName: item.displayName,
         quantityLabel: formatQuantity(item),
         icon: iconForItemName(`${item.rawName} ${item.displayName}`),
-      }))
+        source: 'scan' as const,
+      })),
+      ...localManualItems.map((item) => ({
+        id: item.id,
+        displayName: item.displayName,
+        quantityLabel: formatManualQuantity(item),
+        icon: iconForItemName(`${item.rawName} ${item.displayName}`),
+        source: 'manual' as const,
+      })),
+    ]
     : mockIngredientsForPreview
 
   async function takePhoto() {
@@ -315,9 +359,12 @@ export default function DevFridgeRecognitionCheck() {
     setScanId(null)
     setPhotoResults([])
     setRecognizedItems([])
+    setLocalManualItems([])
     setSelectedItemIds([])
     setConfirmedCount(null)
     setCurrentFridgeItems([])
+    setManualName('')
+    setManualQuantityText('')
   }
 
   async function startRecognition() {
@@ -331,6 +378,7 @@ export default function DevFridgeRecognitionCheck() {
     setScanId(null)
     setPhotoResults([])
     setRecognizedItems([])
+    setLocalManualItems([])
     setSelectedItemIds([])
     setConfirmedCount(null)
     setCurrentFridgeItems([])
@@ -384,13 +432,58 @@ export default function DevFridgeRecognitionCheck() {
     }
   }
 
-  async function confirmSelectedItems() {
-    if (!scanId) {
-      setErrorMessage('还没有可确认的识别批次。')
+  async function addManualCandidate() {
+    const rawName = manualName.trim()
+    const quantityText = manualQuantityText.trim()
+    const quantityKind: FridgeQuantityKind = quantityText.length > 0 ? 'text' : 'unknown'
+
+    if (!rawName) {
+      setErrorMessage('请输入一个食材名称。')
       return
     }
 
-    if (selectedItemIds.length === 0) {
+    setManualAdding(true)
+    setErrorMessage(null)
+
+    try {
+      const result = await addManualFridgeItem({
+        scanId,
+        rawName,
+        quantityKind,
+        quantityText: quantityText || null,
+        quantityCount: null,
+      })
+
+      if (result.kind === 'unmatched') {
+        setErrorMessage(result.message)
+        return
+      }
+
+      if (result.kind === 'scan_item') {
+        setRecognizedItems((current) => [...current, result.item])
+        setSelectedItemIds((current) => Array.from(new Set([...current, result.item.id])))
+      } else {
+        setLocalManualItems((current) => [...current, result.item])
+        setSelectedItemIds((current) => Array.from(new Set([...current, result.item.id])))
+      }
+
+      setManualName('')
+      setManualQuantityText('')
+      setFlowStatus((current) => (current === 'idle' || current === 'error' ? 'ready' : current))
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setManualAdding(false)
+    }
+  }
+
+  async function confirmSelectedItems() {
+    const selectedScanItemIds = selectedItemIds.filter((id) => (
+      confirmableItems.some((item) => item.id === id)
+    ))
+    const selectedLocalManualItems = localManualItems.filter((item) => selectedItemIds.includes(item.id))
+
+    if (selectedScanItemIds.length === 0 && selectedLocalManualItems.length === 0) {
       setErrorMessage('请至少保留一个食材，再更新冰箱。')
       return
     }
@@ -399,14 +492,21 @@ export default function DevFridgeRecognitionCheck() {
     setErrorMessage(null)
 
     try {
-      const savedItems = await confirmFridgeScanItems({
-        scanId,
-        itemIds: selectedItemIds,
-      })
+      const savedScanItems = scanId && selectedScanItemIds.length > 0
+        ? await confirmFridgeScanItems({
+            scanId,
+            itemIds: selectedScanItemIds,
+          })
+        : []
+      const savedManualItems = selectedLocalManualItems.length > 0
+        ? await confirmManualFridgeItems(selectedLocalManualItems)
+        : []
+      const savedItems = [...savedScanItems, ...savedManualItems]
       const activeItems = await getCurrentFridgeItems()
 
       setConfirmedCount(savedItems.length)
       setCurrentFridgeItems(activeItems)
+      setLocalManualItems((current) => current.filter((item) => !selectedItemIds.includes(item.id)))
       setFlowStatus('success')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
@@ -597,41 +697,46 @@ export default function DevFridgeRecognitionCheck() {
               <Text style={styles.resultsTitle}>
                 {confirmableItems.length > 0
                   ? 'AI 发现了这些食材'
-                  : recognizedItems.length > 0
-                    ? '未匹配到标准食材'
-                    : '在储藏室中检测到'}
+                  : localManualItems.length > 0
+                    ? '待确认的食材'
+                    : recognizedItems.length > 0
+                      ? '未匹配到标准食材'
+                      : '在储藏室中检测到'}
               </Text>
               <Text style={styles.resultsSubtitle}>
                 {confirmableItems.length > 0
                   ? '默认全选，点一下可以取消误识别项。'
-                  : recognizedItems.length > 0
-                    ? `${unmatchedItemCount} 个未匹配项已保留在调试信息中，不会进入正式库存。`
-                  : '拍照识别后，这里会替换成真实候选。'}
+                  : localManualItems.length > 0
+                    ? '手动添加的食材会在你确认后进入库存。'
+                    : recognizedItems.length > 0
+                      ? `${unmatchedItemCount} 个未匹配项已保留在调试信息中，不会进入正式库存。`
+                      : '拍照识别后，这里会替换成真实候选。'}
               </Text>
             </View>
             <Text style={styles.itemCountPill}>
-              {recognizedItems.length > 0
-                ? `${selectedItemCount}/${confirmableItems.length}`
+              {confirmableItemCount > 0 || recognizedItems.length > 0
+                ? `${selectedItemCount}/${confirmableItemCount}`
                 : '预览'}
             </Text>
           </View>
 
           <View style={styles.detectedGrid}>
             {resultItemsForPreview.map((item) => {
-              const selected = recognizedItems.length === 0 || selectedItemIds.includes(item.id)
+              const selected = item.source === 'preview' || selectedItemIds.includes(item.id)
               const scanItem = recognizedItems.find((candidate) => candidate.id === item.id)
+              const localManualItem = localManualItems.find((candidate) => candidate.id === item.id)
               const weak = scanItem
                 ? scanItem.needsReview || (scanItem.confidence ?? 0) < 0.7
-                : false
+                : localManualItem?.needsReview ?? false
 
               return (
                 <Pressable
                   key={item.id}
-                  disabled={confirmableItems.length === 0}
+                  disabled={confirmableItemCount === 0}
                   onPress={() => toggleItem(item.id)}
                   style={({ pressed }) => [
                     styles.detectedCard,
-                    selected && confirmableItems.length > 0 && styles.detectedCardSelected,
+                    selected && confirmableItemCount > 0 && styles.detectedCardSelected,
                     weak && styles.detectedCardWeak,
                     pressed && styles.detectedCardPressed,
                   ]}
@@ -641,9 +746,11 @@ export default function DevFridgeRecognitionCheck() {
                   </View>
                   <Text style={styles.detectedName} numberOfLines={2}>{item.displayName}</Text>
                   <Text style={styles.detectedQuantity} numberOfLines={1}>{item.quantityLabel}</Text>
-                  {scanItem ? (
+                  {scanItem || localManualItem ? (
                     <View style={styles.detectedMetaRow}>
-                      <Text style={styles.confidenceText}>{confidenceLabel(scanItem.confidence)}</Text>
+                      <Text style={styles.confidenceText}>
+                        {scanItem ? confidenceLabel(scanItem.confidence) : '手动添加'}
+                      </Text>
                       {weak ? <Text style={styles.reviewBadge}>待确认</Text> : null}
                       <Ionicons
                         name={selected ? 'checkmark-circle' : 'ellipse-outline'}
@@ -661,15 +768,46 @@ export default function DevFridgeRecognitionCheck() {
                 <Ionicons name="add-outline" size={28} color="#4f4741" />
               </View>
               <Text style={styles.manualTitle}>手动添加</Text>
-              <Text style={styles.manualText}>下一步接入编辑入口</Text>
+              <TextInput
+                value={manualName}
+                onChangeText={setManualName}
+                editable={!isBusy}
+                placeholder="例如：土豆"
+                placeholderTextColor="#9c9087"
+                style={styles.manualInput}
+              />
+              <TextInput
+                value={manualQuantityText}
+                onChangeText={setManualQuantityText}
+                editable={!isBusy}
+                placeholder="数量可选"
+                placeholderTextColor="#9c9087"
+                style={styles.manualInput}
+              />
+              <Pressable
+                disabled={isBusy}
+                onPress={addManualCandidate}
+                style={({ pressed }) => [
+                  styles.manualAddButton,
+                  pressed && !isBusy && styles.manualAddButtonPressed,
+                  isBusy && styles.disabledButton,
+                ]}
+              >
+                {manualAdding ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons name="add-outline" size={17} color="#ffffff" />
+                )}
+                <Text style={styles.manualAddButtonText}>加入候选</Text>
+              </Pressable>
             </View>
           </View>
 
           <Pressable
             disabled={
               flowStatus === 'confirming'
-              || confirmableItems.length === 0
-              || selectedItemIds.length === 0
+              || confirmableItemCount === 0
+              || selectedItemCount === 0
             }
             onPress={confirmSelectedItems}
             style={({ pressed }) => [
@@ -677,8 +815,8 @@ export default function DevFridgeRecognitionCheck() {
               pressed && flowStatus !== 'confirming' && styles.confirmButtonPressed,
               (
                 flowStatus === 'confirming'
-                || confirmableItems.length === 0
-                || selectedItemIds.length === 0
+                || confirmableItemCount === 0
+                || selectedItemCount === 0
               ) && styles.disabledButton,
             ]}
           >
@@ -733,6 +871,7 @@ export default function DevFridgeRecognitionCheck() {
                 })),
                 photoResults,
                 selectedItemIds,
+                localManualItems,
                 confirmedCount,
                 currentFridgeItems: currentFridgeItems.map((item) => ({
                   id: item.id,
@@ -1346,6 +1485,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  manualInput: {
+    borderColor: '#ded5cc',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#302a25',
+    fontSize: 13,
+    minHeight: 38,
+    paddingHorizontal: 10,
+    width: '100%',
+    backgroundColor: '#ffffff',
+  },
+  manualAddButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 5,
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 10,
+    width: '100%',
+    backgroundColor: '#1f5945',
+  },
+  manualAddButtonPressed: {
+    backgroundColor: '#184635',
+    transform: [{ scale: 0.99 }],
+  },
+  manualAddButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
   },
   confirmButton: {
     alignItems: 'center',
