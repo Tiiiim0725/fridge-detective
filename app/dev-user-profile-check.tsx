@@ -1,207 +1,988 @@
 // app/dev-user-profile-check.tsx
-// Dev-only page for User Profile Module v0.1 minimum链路 verification
+// User Profile / Onboarding v0.2 product prototype backed by profileService.
 
-import React, { useState } from 'react'
-import { View, Text, Button, ScrollView, StyleSheet } from 'react-native'
-import { ensureAuthUser } from '@/services/authService'
+import { Ionicons } from '@expo/vector-icons'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+
+import { normalizeIngredientName } from '@/services/ingredientService'
 import {
   ensureProfile,
-  saveUserPreferences,
+  getOnboardingContext,
   saveKitchenEquipment,
   savePantryItems,
-  getOnboardingContext,
+  saveUserPreferences,
+  updateProfile,
 } from '@/services/profileService'
+import type { Ingredient } from '@/types/recipe'
+import {
+  ALLERGEN_OPTIONS,
+  COOK_TIME_PREFERENCE_OPTIONS,
+  COOKING_SKILL_OPTIONS,
+  CUISINE_PREFERENCE_OPTIONS,
+  DEFAULT_ASSUMED_KITCHEN_EQUIPMENT_KEYS,
+  DEFAULT_ASSUMED_PANTRY_KEYS,
+  DEFAULT_COOK_TIME_PREFERENCE_KEY,
+  DEFAULT_COOKING_SKILL_KEY,
+  DIETARY_RULE_OPTIONS,
+  KITCHEN_EQUIPMENT_OPTIONS,
+  MEAL_STYLE_OPTIONS,
+  MVP_DEFAULT_KITCHEN_EQUIPMENT_KEYS,
+  PANTRY_ITEM_OPTIONS,
+  QUICK_PANTRY_ITEM_KEYS,
+  USER_SELECTABLE_KITCHEN_EQUIPMENT_KEYS,
+  type AllergenKey,
+  type CookTimePreferenceKey,
+  type CookingSkillKey,
+  type CuisinePreferenceKey,
+  type DietaryRuleKey,
+  type KitchenEquipmentKey,
+  type MealStyleKey,
+  type PantryItemKey,
+} from '@/types/profile'
 
-type CheckStatus = 'idle' | 'running' | 'success' | 'error'
+type SaveStatus = 'idle' | 'loading' | 'saving' | 'success' | 'error'
+type IoniconName = keyof typeof Ionicons.glyphMap
+
+const selectedColor = '#c2652a'
+const inkColor = '#332e29'
+const paperColor = '#fff8f1'
+const pageColor = '#faf5ee'
+const quickPantryKeys = QUICK_PANTRY_ITEM_KEYS as readonly PantryItemKey[]
+const defaultPantryKeys = DEFAULT_ASSUMED_PANTRY_KEYS as readonly PantryItemKey[]
+const traditionalCuisineKeys: CuisinePreferenceKey[] = ['shandong', 'sichuan', 'cantonese', 'huaiyang']
+
+function unique<T extends string>(values: T[]): T[] {
+  return Array.from(new Set(values))
+}
+
+function toggleKey<T extends string>(values: T[], key: T): T[] {
+  return values.includes(key)
+    ? values.filter((value) => value !== key)
+    : [...values, key]
+}
+
+function optionIcon(key: string): IoniconName {
+  if (key.includes('vegetarian') || key.includes('healthy') || key.includes('chinese')) return 'leaf-outline'
+  if (key.includes('vegan')) return 'flower-outline'
+  if (key.includes('halal')) return 'moon-outline'
+  if (key.includes('western')) return 'fast-food-outline'
+  if (key.includes('time') || key.includes('quick')) return 'timer-outline'
+  if (key.includes('rice') || key.includes('pot') || key.includes('stove')) return 'restaurant-outline'
+  if (key.includes('microwave') || key.includes('oven') || key.includes('air')) return 'hardware-chip-outline'
+  if (key.includes('sauce') || key.includes('vinegar') || key.includes('oil')) return 'water-outline'
+  if (key.includes('pepper') || key.includes('chili')) return 'flame-outline'
+  return 'sparkles-outline'
+}
+
+function getPantryLabel(key: PantryItemKey): string {
+  return PANTRY_ITEM_OPTIONS.find((option) => option.key === key)?.zhLabel ?? key
+}
+
+function getEquipmentLabel(key: KitchenEquipmentKey): string {
+  return KITCHEN_EQUIPMENT_OPTIONS.find((option) => option.key === key)?.zhLabel ?? key
+}
 
 export default function DevUserProfileCheck() {
-  const [status, setStatus] = useState<CheckStatus>('idle')
-  const [result, setResult] = useState<unknown | null>(null)
+  const [status, setStatus] = useState<SaveStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [debugOpen, setDebugOpen] = useState(false)
+  const [debugContext, setDebugContext] = useState<unknown | null>(null)
 
-  const runUserProfileCheck = async () => {
-    setStatus('running')
-    setResult(null)
+  const [displayName, setDisplayName] = useState('')
+  const [dietaryRules, setDietaryRules] = useState<DietaryRuleKey[]>(['none'])
+  const [cuisinePreferences, setCuisinePreferences] = useState<CuisinePreferenceKey[]>([
+    'chinese_home',
+    'western_simple',
+  ])
+  const [mealStylePreferences, setMealStylePreferences] = useState<MealStyleKey[]>([
+    'quick_easy',
+    'budget',
+  ])
+  const [allergenKeys, setAllergenKeys] = useState<AllergenKey[]>([])
+  const [avoidIngredientKeys, setAvoidIngredientKeys] = useState<string[]>([])
+  const [cookTimePreferenceKey, setCookTimePreferenceKey] =
+    useState<CookTimePreferenceKey>(DEFAULT_COOK_TIME_PREFERENCE_KEY)
+  const [cookingSkill, setCookingSkill] = useState<CookingSkillKey>(DEFAULT_COOKING_SKILL_KEY)
+  const [equipmentKeys, setEquipmentKeys] = useState<KitchenEquipmentKey[]>([
+    ...MVP_DEFAULT_KITCHEN_EQUIPMENT_KEYS,
+  ])
+  const [pantryKeys, setPantryKeys] = useState<PantryItemKey[]>([
+    ...defaultPantryKeys,
+    'soy_sauce',
+    'vinegar',
+    'black_pepper',
+  ])
+  const [pantryInput, setPantryInput] = useState('')
+  const [avoidInput, setAvoidInput] = useState('')
+  const [matchedPantry, setMatchedPantry] = useState<Ingredient | null>(null)
+
+  const isBusy = status === 'loading' || status === 'saving'
+  const selectedTraditionalCuisineCount = useMemo(
+    () => cuisinePreferences.filter((key) => traditionalCuisineKeys.includes(key)).length,
+    [cuisinePreferences]
+  )
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadContext() {
+      setStatus('loading')
+      setErrorMessage(null)
+
+      try {
+        const context = await getOnboardingContext()
+
+        if (!mounted) return
+
+        setDisplayName(context.profile.displayName ?? '')
+
+        if (context.preferences) {
+          setDietaryRules(context.preferences.dietaryRules.length > 0
+            ? context.preferences.dietaryRules
+            : ['none'])
+          setCuisinePreferences(context.preferences.cuisinePreferences.length > 0
+            ? context.preferences.cuisinePreferences
+            : ['chinese_home', 'western_simple'])
+          setMealStylePreferences(context.preferences.mealStylePreferences)
+          setAllergenKeys(context.preferences.allergenKeys)
+          setAvoidIngredientKeys(context.preferences.avoidIngredientKeys)
+          setCookTimePreferenceKey(context.preferences.cookTimePreferenceKey)
+          setCookingSkill(context.preferences.cookingSkill)
+        }
+
+        setEquipmentKeys(context.equipmentKeys.length > 0
+          ? context.equipmentKeys.filter((key) => USER_SELECTABLE_KITCHEN_EQUIPMENT_KEYS.includes(key))
+          : [...MVP_DEFAULT_KITCHEN_EQUIPMENT_KEYS])
+        setPantryKeys(context.pantryItemKeys.length > 0
+          ? unique([...defaultPantryKeys, ...context.pantryItemKeys])
+          : unique([...defaultPantryKeys, 'soy_sauce', 'vinegar', 'black_pepper']))
+        setDebugContext(context)
+        setStatus('idle')
+      } catch (error) {
+        if (!mounted) return
+        setErrorMessage(error instanceof Error ? error.message : String(error))
+        setStatus('error')
+      }
+    }
+
+    loadContext()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  function toggleDietaryRule(key: DietaryRuleKey) {
+    setDietaryRules((current) => {
+      if (key === 'none') {
+        return ['none']
+      }
+
+      const withoutNone = current.filter((value) => value !== 'none')
+      const next = toggleKey(withoutNone, key)
+      return next.length > 0 ? next : ['none']
+    })
+  }
+
+  function toggleCuisine(key: CuisinePreferenceKey) {
+    setCuisinePreferences((current) => {
+      const isTraditional = traditionalCuisineKeys.includes(key)
+      const alreadySelected = current.includes(key)
+
+      if (isTraditional && !alreadySelected && selectedTraditionalCuisineCount >= 2) {
+        setErrorMessage('传统菜系最多选择 2 个。')
+        return current
+      }
+
+      setErrorMessage(null)
+      return toggleKey(current, key)
+    })
+  }
+
+  function togglePantry(key: PantryItemKey) {
+    if (defaultPantryKeys.includes(key)) {
+      return
+    }
+
+    setPantryKeys((current) => toggleKey(current, key))
+  }
+
+  async function addFreePantryItem() {
+    const raw = pantryInput.trim()
+
+    if (!raw) {
+      setErrorMessage('请输入一个 pantry 或调味品名称。')
+      return
+    }
+
+    setErrorMessage(null)
+    setMatchedPantry(null)
+
+    try {
+      const ingredient = await normalizeIngredientName(raw)
+
+      if (!ingredient || !ingredient.isPantryItem) {
+        setErrorMessage(`没有匹配到可保存的 pantry 食材：“${raw}”。可以换个常见说法再试。`)
+        return
+      }
+
+      setPantryKeys((current) => unique([...current, ingredient.ingredientKey as PantryItemKey]))
+      setMatchedPantry(ingredient)
+      setPantryInput('')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  async function addAvoidIngredient() {
+    const raw = avoidInput.trim()
+
+    if (!raw) {
+      setErrorMessage('请输入一个不想吃的食材。')
+      return
+    }
+
     setErrorMessage(null)
 
     try {
-      // Step 1: Ensure auth user
-      const authUser = await ensureAuthUser()
+      const ingredient = await normalizeIngredientName(raw)
 
-      // Step 2: Ensure profile exists
-      const profile = await ensureProfile()
+      if (!ingredient) {
+        setErrorMessage(`没有匹配到标准食材：“${raw}”。可以换个常见说法再试。`)
+        return
+      }
 
-      // Step 3: Save user preferences
+      setAvoidIngredientKeys((current) => unique([...current, ingredient.ingredientKey]))
+      setAvoidInput('')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  async function saveProfile() {
+    setStatus('saving')
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    try {
+      await ensureProfile()
+      const profile = await updateProfile({
+        displayName: displayName.trim() || null,
+        onboardingStatus: 'completed',
+      })
       const preferences = await saveUserPreferences({
-        portionSize: 'normal',
-        spiceLevel: 'mild',
-        saltiness: 'normal',
-        cuisinePreferences: ['chinese', 'korean'],
-        mealStylePreferences: ['quick_easy', 'budget'],
-        dietTags: [],
-        dislikedIngredientKeys: ['cilantro'],
-        allergenKeys: [],
+        cuisinePreferences,
+        mealStylePreferences,
+        dietaryRules,
+        avoidIngredientKeys,
+        allergenKeys,
+        cookTimePreferenceKey,
+        cookingSkill,
       })
-
-      // Step 4: Save kitchen equipment
       const equipment = await saveKitchenEquipment({
-        equipmentKeys: ['pot', 'pan', 'rice_cooker', 'knife', 'cutting_board'],
+        equipmentKeys: unique([...DEFAULT_ASSUMED_KITCHEN_EQUIPMENT_KEYS, ...equipmentKeys]),
       })
-
-      // Step 5: Save pantry items
       const pantry = await savePantryItems({
-        pantryItemKeys: ['cooking_oil', 'salt', 'soy_sauce', 'rice', 'instant_noodles'],
+        pantryItemKeys: unique(pantryKeys),
       })
+      const context = await getOnboardingContext()
 
-      // Step 6: Get complete onboarding context
-      const onboardingContext = await getOnboardingContext()
-
-      // Build final result
-      const finalResult = {
-        authUser,
+      setDebugContext({
         profile,
         preferences,
         equipmentKeys: equipment.map((item) => item.equipmentKey),
         pantryItemKeys: pantry.map((item) => item.pantryItemKey),
-        onboardingContext,
-      }
-
-      setResult(finalResult)
+        context,
+      })
+      setSuccessMessage('档案已保存，推荐系统可以使用这些偏好了。')
       setStatus('success')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error occurred'
-      setErrorMessage(message)
+      setErrorMessage(error instanceof Error ? error.message : String(error))
       setStatus('error')
     }
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>User Profile Dev Check</Text>
-
-        <View style={styles.buttonContainer}>
-          <Button
-            title="Run User Profile Check"
-            onPress={runUserProfileCheck}
-            disabled={status === 'running'}
-          />
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.topBar}>
+          <Ionicons name="menu-outline" size={25} color="#5f554d" />
+          <Text style={styles.brand}>冰箱侦探</Text>
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={18} color="#fff8f1" />
+          </View>
         </View>
 
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>Status: </Text>
-          <Text
-            style={[
-              styles.statusValue,
-              status === 'idle' && styles.statusIdle,
-              status === 'running' && styles.statusRunning,
-              status === 'success' && styles.statusSuccess,
-              status === 'error' && styles.statusError,
-            ]}
-          >
-            {status}
+        <View style={styles.hero}>
+          <View style={styles.heroIcon}>
+            <Ionicons name="options-outline" size={30} color={selectedColor} />
+          </View>
+          <Text style={styles.title}>Refine Your Profile</Text>
+          <Text style={styles.subtitle}>告诉我一点点口味和厨房条件，今晚推荐会更像你。</Text>
+        </View>
+
+        {errorMessage ? (
+          <View style={styles.errorPanel}>
+            <Ionicons name="alert-circle-outline" size={18} color="#a33a2d" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {successMessage ? (
+          <View style={styles.successPanel}>
+            <Ionicons name="checkmark-circle-outline" size={19} color="#1f5945" />
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.topGrid}>
+          <View style={[styles.card, styles.topGridCard]}>
+            <SectionHeader icon="person-outline" title="Profile" />
+            <Text style={styles.helperText}>这个名字只用于页面称呼，不影响推荐。</Text>
+            <TextInput
+              value={displayName}
+              onChangeText={setDisplayName}
+              editable={!isBusy}
+              placeholder="怎么称呼你？"
+              placeholderTextColor="#9c9087"
+              style={styles.textInput}
+            />
+          </View>
+
+          <View style={[styles.card, styles.topGridCard]}>
+            <SectionHeader icon="timer-outline" title="Cooking Rhythm" />
+            <Text style={styles.helperText}>默认是 30 分钟以内；第四档表示愿意接受更长准备。</Text>
+            <View style={styles.pillWrap}>
+              {COOK_TIME_PREFERENCE_OPTIONS.map((option) => (
+                <PillButton
+                  key={option.key}
+                  label={option.zhLabel}
+                  selected={cookTimePreferenceKey === option.key}
+                  onPress={() => setCookTimePreferenceKey(option.key)}
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <SectionHeader icon="restaurant-outline" title="Dietary Preferences" />
+          <Text style={styles.helperText}>这里只保留会影响推荐过滤的核心饮食限制。</Text>
+          <View style={styles.optionGrid}>
+            {DIETARY_RULE_OPTIONS.map((option) => (
+              <OptionCard
+                key={option.key}
+                label={option.zhLabel}
+                description={option.zhDescription}
+                icon={optionIcon(option.key)}
+                selected={dietaryRules.includes(option.key)}
+                onPress={() => toggleDietaryRule(option.key)}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <SectionHeader icon="compass-outline" title="Cuisine Direction" />
+          <Text style={styles.helperText}>建议保留中式家常菜和西餐简餐；传统菜系最多选 2 个。</Text>
+          <View style={styles.pillWrap}>
+            {CUISINE_PREFERENCE_OPTIONS.map((option) => (
+              <PillButton
+                key={option.key}
+                label={option.zhLabel}
+                selected={cuisinePreferences.includes(option.key)}
+                onPress={() => toggleCuisine(option.key)}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <SectionHeader icon="sparkles-outline" title="Meal Style" />
+          <Text style={styles.helperText}>这些是推荐排序的轻量偏好，不是硬性限制。</Text>
+          <View style={styles.pillWrap}>
+            {MEAL_STYLE_OPTIONS.map((option) => (
+              <PillButton
+                key={option.key}
+                label={option.zhLabel}
+                selected={mealStylePreferences.includes(option.key)}
+                onPress={() => setMealStylePreferences((current) => toggleKey(current, option.key))}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <SectionHeader icon="school-outline" title="Cooking Skill" />
+          <View style={styles.optionGrid}>
+            {COOKING_SKILL_OPTIONS.map((option) => (
+              <OptionCard
+                key={option.key}
+                label={option.zhLabel}
+                description={option.zhDescription}
+                icon="flame-outline"
+                selected={cookingSkill === option.key}
+                onPress={() => setCookingSkill(option.key)}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <SectionHeader icon="close-circle-outline" title="Avoid / Allergens" />
+          <Text style={styles.helperText}>具体不想吃的食材会先匹配标准食材字典，匹配不到不会写入。</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              value={avoidInput}
+              onChangeText={setAvoidInput}
+              editable={!isBusy}
+              placeholder="例如：香菜、蘑菇、虾"
+              placeholderTextColor="#9c9087"
+              style={styles.textInput}
+            />
+            <Pressable style={styles.addButton} onPress={addAvoidIngredient} disabled={isBusy}>
+              <Ionicons name="add-outline" size={19} color="#ffffff" />
+            </Pressable>
+          </View>
+          {avoidIngredientKeys.length > 0 ? (
+            <View style={styles.pillWrap}>
+              {avoidIngredientKeys.map((key) => (
+                <PillButton
+                  key={key}
+                  label={key}
+                  selected
+                  onPress={() => setAvoidIngredientKeys((current) => current.filter((value) => value !== key))}
+                />
+              ))}
+            </View>
+          ) : null}
+          <Text style={styles.subSectionTitle}>过敏项</Text>
+          <View style={styles.pillWrap}>
+            {ALLERGEN_OPTIONS.map((option) => (
+              <PillButton
+                key={option.key}
+                label={option.zhLabel}
+                selected={allergenKeys.includes(option.key)}
+                onPress={() => setAllergenKeys((current) => toggleKey(current, option.key))}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <SectionHeader icon="construct-outline" title="Kitchen Equipment" />
+          <Text style={styles.helperText}>
+            {`基础工具默认假设拥有：${DEFAULT_ASSUMED_KITCHEN_EQUIPMENT_KEYS.map(getEquipmentLabel).join('、')}。这里只问会影响菜谱的关键厨具。`}
           </Text>
+          <View style={styles.optionGrid}>
+            {KITCHEN_EQUIPMENT_OPTIONS
+              .filter((option) => USER_SELECTABLE_KITCHEN_EQUIPMENT_KEYS.includes(option.key))
+              .map((option) => (
+                <OptionCard
+                  key={option.key}
+                  label={option.zhLabel}
+                  description={option.isMvpDefault ? '推荐默认' : option.enLabel}
+                  icon={optionIcon(option.key)}
+                  selected={equipmentKeys.includes(option.key)}
+                  onPress={() => setEquipmentKeys((current) => toggleKey(current, option.key))}
+                />
+              ))}
+          </View>
         </View>
 
-        {errorMessage && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorTitle}>Error:</Text>
-            <Text style={styles.errorMessage}>{errorMessage}</Text>
+        <View style={styles.card}>
+          <SectionHeader icon="basket-outline" title="Pantry" />
+          <Text style={styles.helperText}>盐和糖默认不问。九宫格用于高频 pantry，其他调料可以自由输入。</Text>
+          <View style={styles.basicPantryBox}>
+            <Text style={styles.basicPantryText}>默认已有：{defaultPantryKeys.map(getPantryLabel).join('、')}</Text>
           </View>
-        )}
+          <View style={styles.optionGrid}>
+            {quickPantryKeys.map((key) => (
+              <OptionCard
+                key={key}
+                label={getPantryLabel(key)}
+                description="快捷选择"
+                icon={optionIcon(key)}
+                selected={pantryKeys.includes(key)}
+                onPress={() => togglePantry(key)}
+              />
+            ))}
+          </View>
+          <View style={styles.inputRow}>
+            <TextInput
+              value={pantryInput}
+              onChangeText={setPantryInput}
+              editable={!isBusy}
+              placeholder="自由输入：蚝油 / 郫县豆瓣 / 味噌"
+              placeholderTextColor="#9c9087"
+              style={styles.textInput}
+            />
+            <Pressable style={styles.addButton} onPress={addFreePantryItem} disabled={isBusy}>
+              <Ionicons name="add-outline" size={19} color="#ffffff" />
+            </Pressable>
+          </View>
+          {matchedPantry ? (
+            <Text style={styles.matchText}>已匹配：{matchedPantry.zhName} / {matchedPantry.ingredientKey}</Text>
+          ) : null}
+          <View style={styles.pillWrap}>
+            {pantryKeys
+              .filter((key) => !defaultPantryKeys.includes(key))
+              .map((key) => (
+                <PillButton
+                  key={key}
+                  label={getPantryLabel(key)}
+                  selected
+                  onPress={() => togglePantry(key)}
+                />
+              ))}
+          </View>
+        </View>
 
-        {result !== null && (
-          <View style={styles.resultContainer}>
-            <Text style={styles.resultTitle}>Result:</Text>
-            <ScrollView horizontal style={styles.resultScroll}>
-              <Text style={styles.resultJson}>{JSON.stringify(result, null, 2)}</Text>
-            </ScrollView>
-          </View>
-        )}
+        <View style={styles.debugPanel}>
+          <Pressable style={styles.debugHeader} onPress={() => setDebugOpen((open) => !open)}>
+            <Text style={styles.debugTitle}>调试信息</Text>
+            <Ionicons name={debugOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={18} color="#6b625b" />
+          </Pressable>
+          {debugOpen ? (
+            <Text style={styles.debugText}>{JSON.stringify(debugContext, null, 2)}</Text>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <View style={styles.bottomBar}>
+        <Pressable
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.secondaryButton,
+            pressed && styles.buttonPressed,
+          ]}
+          onPress={() => setDebugOpen((open) => !open)}
+        >
+          <Text style={styles.secondaryButtonText}>Cancel</Text>
+        </Pressable>
+        <Pressable
+          disabled={isBusy}
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.saveButton,
+            pressed && !isBusy && styles.buttonPressed,
+            isBusy && styles.disabledButton,
+          ]}
+          onPress={saveProfile}
+        >
+          {isBusy ? <ActivityIndicator color="#ffffff" /> : null}
+          <Text style={styles.saveButtonText}>Save Profile</Text>
+        </Pressable>
       </View>
-    </ScrollView>
+    </View>
+  )
+}
+
+function SectionHeader({ icon, title }: { icon: IoniconName; title: string }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Ionicons name={icon} size={18} color="#746b63" />
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+  )
+}
+
+function PillButton({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string
+  selected: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }: { pressed: boolean }) => [
+        styles.pill,
+        selected && styles.pillSelected,
+        pressed && styles.buttonPressed,
+      ]}
+    >
+      <Text style={[styles.pillText, selected && styles.pillTextSelected]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  )
+}
+
+function OptionCard({
+  label,
+  description,
+  icon,
+  selected,
+  onPress,
+}: {
+  label: string
+  description: string
+  icon: IoniconName
+  selected: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }: { pressed: boolean }) => [
+        styles.optionCard,
+        selected && styles.optionCardSelected,
+        pressed && styles.buttonPressed,
+      ]}
+    >
+      <View style={[styles.optionIcon, selected && styles.optionIconSelected]}>
+        <Ionicons name={icon} size={24} color={selected ? '#ffffff' : '#7d746c'} />
+      </View>
+      <Text style={styles.optionLabel} numberOfLines={2}>{label}</Text>
+      <Text style={styles.optionDescription} numberOfLines={2}>{description}</Text>
+    </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: pageColor,
   },
-  content: {
-    padding: 16,
+  container: {
+    gap: 18,
+    paddingBottom: 104,
+  },
+  topBar: {
+    alignItems: 'center',
+    borderBottomColor: '#e5ddd4',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    minHeight: 66,
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    backgroundColor: '#fff8f1',
+  },
+  brand: {
+    color: '#b55f28',
+    flex: 1,
+    fontSize: 23,
+    fontWeight: '900',
+    letterSpacing: 0,
+    paddingLeft: 14,
+  },
+  avatar: {
+    alignItems: 'center',
+    borderColor: '#ffffff',
+    borderRadius: 22,
+    borderWidth: 2,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+    backgroundColor: '#17251f',
+  },
+  hero: {
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 26,
+    paddingTop: 22,
+  },
+  heroIcon: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 24,
+    color: '#2c2824',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: 0,
+    textAlign: 'center',
   },
-  buttonContainer: {
-    marginBottom: 16,
+  subtitle: {
+    color: '#70665d',
+    fontSize: 16,
+    lineHeight: 24,
+    maxWidth: 430,
+    textAlign: 'center',
   },
-  statusContainer: {
+  topGrid: {
     flexDirection: 'row',
-    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 14,
+    marginHorizontal: 22,
   },
-  statusLabel: {
-    fontSize: 16,
-    color: '#ffffff',
+  topGridCard: {
+    flex: 1,
+    marginHorizontal: 0,
+    minWidth: 280,
   },
-  statusValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  statusIdle: {
-    color: '#888888',
-  },
-  statusRunning: {
-    color: '#ffaa00',
-  },
-  statusSuccess: {
-    color: '#00cc66',
-  },
-  statusError: {
-    color: '#ff4444',
-  },
-  errorContainer: {
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: '#ff4444',
+  card: {
+    borderColor: '#e4dbd2',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    borderWidth: 1,
+    gap: 15,
+    marginHorizontal: 22,
+    padding: 18,
+    backgroundColor: paperColor,
+    shadowColor: '#31261f',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  errorTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ff4444',
-    marginBottom: 8,
+  sectionHeader: {
+    alignItems: 'center',
+    borderBottomColor: '#ebe2d9',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 42,
+    paddingBottom: 10,
   },
-  errorMessage: {
+  sectionTitle: {
+    color: inkColor,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  helperText: {
+    color: '#746b63',
     fontSize: 14,
-    color: '#ff8888',
     lineHeight: 20,
   },
-  resultContainer: {
-    backgroundColor: 'rgba(0, 204, 102, 0.05)',
-    borderWidth: 1,
-    borderColor: '#00cc66',
+  subSectionTitle: {
+    color: inkColor,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  textInput: {
+    borderColor: '#d8cec5',
     borderRadius: 8,
+    borderWidth: 1,
+    color: '#302a25',
+    flex: 1,
+    fontSize: 15,
+    minHeight: 46,
+    minWidth: 180,
+    paddingHorizontal: 13,
+    backgroundColor: '#ffffff',
+  },
+  inputRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  addButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    height: 46,
+    justifyContent: 'center',
+    width: 48,
+    backgroundColor: selectedColor,
+  },
+  pillWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  pill: {
+    borderColor: '#ded5cc',
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 42,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+  },
+  pillSelected: {
+    borderColor: selectedColor,
+    backgroundColor: selectedColor,
+  },
+  pillText: {
+    color: '#5f554d',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  pillTextSelected: {
+    color: '#ffffff',
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  optionCard: {
+    borderColor: '#ded5cc',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 7,
+    minHeight: 132,
+    padding: 13,
+    width: '47%',
+    backgroundColor: '#ffffff',
+  },
+  optionCardSelected: {
+    borderColor: selectedColor,
+    backgroundColor: '#fbecdf',
+  },
+  optionIcon: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+    backgroundColor: '#f4eee8',
+  },
+  optionIconSelected: {
+    backgroundColor: '#dc884d',
+  },
+  optionLabel: {
+    color: inkColor,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  optionDescription: {
+    color: '#81776e',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  basicPantryBox: {
+    borderColor: '#e7d2bf',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+    backgroundColor: '#fff1e6',
+  },
+  basicPantryText: {
+    color: '#9a5528',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  matchText: {
+    color: '#1f5945',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  errorPanel: {
+    alignItems: 'center',
+    borderColor: '#efc5bd',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 22,
+    padding: 12,
+    backgroundColor: '#fff1ee',
+  },
+  errorText: {
+    color: '#a33a2d',
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  successPanel: {
+    alignItems: 'center',
+    borderColor: '#bdd8c8',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 22,
+    padding: 12,
+    backgroundColor: '#edf8f1',
+  },
+  successText: {
+    color: '#1f5945',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  debugPanel: {
+    borderColor: '#e1d8cf',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginHorizontal: 22,
+    backgroundColor: '#fffdf9',
+  },
+  debugHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  debugTitle: {
+    color: '#6b625b',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  debugText: {
+    borderTopColor: '#eee7df',
+    borderTopWidth: 1,
+    color: '#314039',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    lineHeight: 16,
     padding: 12,
   },
-  resultTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#00cc66',
-    marginBottom: 8,
+  bottomBar: {
+    alignItems: 'center',
+    borderTopColor: '#e4dcd3',
+    borderTopWidth: 1,
+    bottom: 0,
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    left: 0,
+    minHeight: 78,
+    paddingHorizontal: 22,
+    position: 'absolute',
+    right: 0,
+    backgroundColor: 'rgba(255, 250, 245, 0.98)',
   },
-  resultScroll: {
-    maxHeight: 400,
+  secondaryButton: {
+    alignItems: 'center',
+    borderColor: '#ded5cc',
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 48,
+    backgroundColor: '#ffffff',
   },
-  resultJson: {
-    fontSize: 11,
-    color: '#aaffaa',
-    fontFamily: 'monospace',
+  secondaryButtonText: {
+    color: '#6e645c',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  saveButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    flex: 1.4,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 48,
+    backgroundColor: selectedColor,
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  buttonPressed: {
+    transform: [{ scale: 0.99 }],
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 })
