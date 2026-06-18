@@ -132,8 +132,10 @@ export type PantryItemKey =
   | 'black_pepper'
   | 'white_pepper'
   | 'soy_sauce'
+  | 'light_soy_sauce'
   | 'dark_soy_sauce'
   | 'vinegar'
+  | 'black_vinegar'
   | 'oyster_sauce'
   | 'cooking_wine'
   | 'ketchup'
@@ -646,8 +648,10 @@ export const PANTRY_ITEM_OPTIONS: PantryItemOption[] = [
   { key: 'black_pepper', zhLabel: '黑胡椒', enLabel: 'Black Pepper', category: 'spice' },
   { key: 'white_pepper', zhLabel: '白胡椒', enLabel: 'White Pepper', category: 'spice' },
   { key: 'soy_sauce', zhLabel: '酱油', enLabel: 'Soy Sauce', category: 'sauce' },
+  { key: 'light_soy_sauce', zhLabel: '生抽', enLabel: 'Light Soy Sauce', category: 'sauce' },
   { key: 'dark_soy_sauce', zhLabel: '老抽', enLabel: 'Dark Soy Sauce', category: 'sauce' },
   { key: 'vinegar', zhLabel: '醋', enLabel: 'Vinegar', category: 'sauce' },
+  { key: 'black_vinegar', zhLabel: '香醋', enLabel: 'Black Vinegar', category: 'sauce' },
   { key: 'oyster_sauce', zhLabel: '蚝油', enLabel: 'Oyster Sauce', category: 'sauce' },
   { key: 'cooking_wine', zhLabel: '料酒', enLabel: 'Cooking Wine', category: 'sauce' },
   { key: 'ketchup', zhLabel: '番茄酱', enLabel: 'Ketchup', category: 'sauce' },
