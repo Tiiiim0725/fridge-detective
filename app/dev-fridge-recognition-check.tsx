@@ -20,8 +20,12 @@ import {
 import {
   addManualFridgeItem,
   confirmManualFridgeItems,
+  confirmManualPantryItems,
   type ManualFridgeLocalCandidate,
+  type ManualPantryLocalCandidate,
 } from '@/services/manualFridgeService'
+import { splitIngredientsByPantryTarget } from '@/services/pantryItemService'
+import { addPantryItems } from '@/services/profileService'
 import {
   FRIDGE_PHOTO_GUIDE_STEPS,
   type FridgeItem,
@@ -30,6 +34,7 @@ import {
   type FridgeQuantityKind,
   type FridgeScanItem,
 } from '@/types/fridge'
+import type { PantryItemKey } from '@/types/profile'
 
 type LocalPhotoStatus = 'local' | 'uploading' | 'recognizing' | 'done' | 'error'
 type FlowStatus = 'idle' | 'recognizing' | 'ready' | 'confirming' | 'success' | 'error'
@@ -196,12 +201,16 @@ export default function DevFridgeRecognitionCheck() {
   const [scanId, setScanId] = useState<string | null>(null)
   const [photoResults, setPhotoResults] = useState<unknown[]>([])
   const [recognizedItems, setRecognizedItems] = useState<FridgeScanItem[]>([])
+  const [pantryScanItems, setPantryScanItems] = useState<FridgeScanItem[]>([])
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
+  const [selectedPantryItemIds, setSelectedPantryItemIds] = useState<string[]>([])
   const [confirmedCount, setConfirmedCount] = useState<number | null>(null)
+  const [confirmedPantryCount, setConfirmedPantryCount] = useState<number | null>(null)
   const [currentFridgeItems, setCurrentFridgeItems] = useState<FridgeItem[]>([])
   const [debugOpen, setDebugOpen] = useState(false)
   const [urlFallback, setUrlFallback] = useState('')
   const [localManualItems, setLocalManualItems] = useState<ManualFridgeLocalCandidate[]>([])
+  const [localManualPantryItems, setLocalManualPantryItems] = useState<ManualPantryLocalCandidate[]>([])
   const [manualName, setManualName] = useState('')
   const [manualQuantityText, setManualQuantityText] = useState('')
   const [manualAdding, setManualAdding] = useState(false)
@@ -210,9 +219,17 @@ export default function DevFridgeRecognitionCheck() {
     () => photos.filter((photo) => photo.selected),
     [photos]
   )
+  const pantryScanItemIds = useMemo(
+    () => new Set(pantryScanItems.map((item) => item.id)),
+    [pantryScanItems]
+  )
   const confirmableItems = useMemo(
-    () => recognizedItems.filter((item) => item.ingredientKey !== null),
-    [recognizedItems]
+    () => recognizedItems.filter((item) => item.ingredientKey !== null && !pantryScanItemIds.has(item.id)),
+    [recognizedItems, pantryScanItemIds]
+  )
+  const pantryCandidateItems = useMemo(
+    () => [...pantryScanItems, ...localManualPantryItems],
+    [pantryScanItems, localManualPantryItems]
   )
   const selectableItemIds = useMemo(
     () => [
@@ -221,11 +238,19 @@ export default function DevFridgeRecognitionCheck() {
     ],
     [confirmableItems, localManualItems]
   )
+  const selectablePantryItemIds = useMemo(
+    () => pantryCandidateItems.map((item) => item.id),
+    [pantryCandidateItems]
+  )
   const primaryPreviewUri = selectedPhotos[0]?.localUri ?? photos[0]?.localUri ?? null
   const scannerImageUri = primaryPreviewUri ?? scannerPreviewImageUrl
-  const selectedItemCount = selectedItemIds.filter((id) => selectableItemIds.includes(id)).length
+  const selectedFridgeItemCount = selectedItemIds.filter((id) => selectableItemIds.includes(id)).length
+  const selectedPantryItemCount = selectedPantryItemIds.filter((id) => selectablePantryItemIds.includes(id)).length
+  const selectedItemCount = selectedFridgeItemCount + selectedPantryItemCount
   const confirmableItemCount = selectableItemIds.length
-  const unmatchedItemCount = recognizedItems.length - confirmableItems.length
+  const pantryCandidateCount = selectablePantryItemIds.length
+  const totalConfirmableCount = confirmableItemCount + pantryCandidateCount
+  const unmatchedItemCount = recognizedItems.length - confirmableItems.length - pantryScanItems.length
   const currentGuideStep = getGuideStep(photos.length)
   const isBusy = flowStatus === 'recognizing' || flowStatus === 'confirming' || manualAdding
   const scannerLabel = flowStatus === 'recognizing'
@@ -351,6 +376,14 @@ export default function DevFridgeRecognitionCheck() {
     ))
   }
 
+  function togglePantryCandidate(itemId: string) {
+    setSelectedPantryItemIds((current) => (
+      current.includes(itemId)
+        ? current.filter((id) => id !== itemId)
+        : [...current, itemId]
+    ))
+  }
+
   function resetFlow() {
     setPhotos([])
     setFlowStatus('idle')
@@ -359,9 +392,13 @@ export default function DevFridgeRecognitionCheck() {
     setScanId(null)
     setPhotoResults([])
     setRecognizedItems([])
+    setPantryScanItems([])
     setLocalManualItems([])
+    setLocalManualPantryItems([])
     setSelectedItemIds([])
+    setSelectedPantryItemIds([])
     setConfirmedCount(null)
+    setConfirmedPantryCount(null)
     setCurrentFridgeItems([])
     setManualName('')
     setManualQuantityText('')
@@ -378,9 +415,13 @@ export default function DevFridgeRecognitionCheck() {
     setScanId(null)
     setPhotoResults([])
     setRecognizedItems([])
+    setPantryScanItems([])
     setLocalManualItems([])
+    setLocalManualPantryItems([])
     setSelectedItemIds([])
+    setSelectedPantryItemIds([])
     setConfirmedCount(null)
+    setConfirmedPantryCount(null)
     setCurrentFridgeItems([])
 
     try {
@@ -413,12 +454,14 @@ export default function DevFridgeRecognitionCheck() {
 
       setScanId(result.scanId)
       setPhotoResults(result.photoResults)
+      const splitItems = await splitIngredientsByPantryTarget(result.items)
       setRecognizedItems(result.items)
+      setPantryScanItems(splitItems.pantryItems)
       setSelectedItemIds(
-        result.items
-          .filter((item) => item.ingredientKey !== null)
+        splitItems.fridgeItems
           .map((item) => item.id)
       )
+      setSelectedPantryItemIds([])
       setFlowStatus('ready')
 
       if (result.items.length === 0) {
@@ -459,7 +502,10 @@ export default function DevFridgeRecognitionCheck() {
         return
       }
 
-      if (result.kind === 'scan_item') {
+      if (result.kind === 'pantry_candidate') {
+        setLocalManualPantryItems((current) => [...current, result.item])
+        setSelectedPantryItemIds((current) => Array.from(new Set([...current, result.item.id])))
+      } else if (result.kind === 'scan_item') {
         setRecognizedItems((current) => [...current, result.item])
         setSelectedItemIds((current) => Array.from(new Set([...current, result.item.id])))
       } else {
@@ -482,8 +528,15 @@ export default function DevFridgeRecognitionCheck() {
       confirmableItems.some((item) => item.id === id)
     ))
     const selectedLocalManualItems = localManualItems.filter((item) => selectedItemIds.includes(item.id))
+    const selectedPantryScanItems = pantryScanItems.filter((item) => selectedPantryItemIds.includes(item.id))
+    const selectedLocalManualPantryItems = localManualPantryItems.filter((item) => selectedPantryItemIds.includes(item.id))
 
-    if (selectedScanItemIds.length === 0 && selectedLocalManualItems.length === 0) {
+    if (
+      selectedScanItemIds.length === 0
+      && selectedLocalManualItems.length === 0
+      && selectedPantryScanItems.length === 0
+      && selectedLocalManualPantryItems.length === 0
+    ) {
       setErrorMessage('请至少保留一个食材，再更新冰箱。')
       return
     }
@@ -501,12 +554,26 @@ export default function DevFridgeRecognitionCheck() {
       const savedManualItems = selectedLocalManualItems.length > 0
         ? await confirmManualFridgeItems(selectedLocalManualItems)
         : []
+      const savedPantryItems = selectedPantryScanItems.length > 0
+        ? await addPantryItems({
+            pantryItemKeys: selectedPantryScanItems
+              .map((item) => item.ingredientKey)
+              .filter((key): key is string => key !== null)
+              .map((key) => key as PantryItemKey),
+          })
+        : []
+      const savedManualPantryItems = selectedLocalManualPantryItems.length > 0
+        ? await confirmManualPantryItems(selectedLocalManualPantryItems)
+        : []
       const savedItems = [...savedScanItems, ...savedManualItems]
       const activeItems = await getCurrentFridgeItems()
 
       setConfirmedCount(savedItems.length)
+      setConfirmedPantryCount(savedPantryItems.length + savedManualPantryItems.length)
       setCurrentFridgeItems(activeItems)
       setLocalManualItems((current) => current.filter((item) => !selectedItemIds.includes(item.id)))
+      setLocalManualPantryItems((current) => current.filter((item) => !selectedPantryItemIds.includes(item.id)))
+      setPantryScanItems((current) => current.filter((item) => !selectedPantryItemIds.includes(item.id)))
       setFlowStatus('success')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
@@ -714,8 +781,8 @@ export default function DevFridgeRecognitionCheck() {
               </Text>
             </View>
             <Text style={styles.itemCountPill}>
-              {confirmableItemCount > 0 || recognizedItems.length > 0
-                ? `${selectedItemCount}/${confirmableItemCount}`
+              {totalConfirmableCount > 0 || recognizedItems.length > 0
+                ? `${selectedItemCount}/${totalConfirmableCount}`
                 : '预览'}
             </Text>
           </View>
@@ -732,11 +799,11 @@ export default function DevFridgeRecognitionCheck() {
               return (
                 <Pressable
                   key={item.id}
-                  disabled={confirmableItemCount === 0}
+                  disabled={totalConfirmableCount === 0}
                   onPress={() => toggleItem(item.id)}
                   style={({ pressed }) => [
                     styles.detectedCard,
-                    selected && confirmableItemCount > 0 && styles.detectedCardSelected,
+                    selected && totalConfirmableCount > 0 && styles.detectedCardSelected,
                     weak && styles.detectedCardWeak,
                     pressed && styles.detectedCardPressed,
                   ]}
@@ -803,10 +870,59 @@ export default function DevFridgeRecognitionCheck() {
             </View>
           </View>
 
+          {pantryCandidateItems.length > 0 ? (
+            <View style={styles.pantryCandidatePanel}>
+              <View style={styles.pantryCandidateHeader}>
+                <View style={styles.pantryCandidateCopy}>
+                  <Text style={styles.pantryCandidateTitle}>识别到调料 / 常备项</Text>
+                  <Text style={styles.pantryCandidateText}>
+                    这些更像常备 pantry，不会进入冰箱库存。选中后会加入常备调料。
+                  </Text>
+                </View>
+                <Text style={styles.itemCountPill}>
+                  {selectedPantryItemCount}/{pantryCandidateCount}
+                </Text>
+              </View>
+
+              <View style={styles.detectedGrid}>
+                {pantryCandidateItems.map((item) => {
+                  const selected = selectedPantryItemIds.includes(item.id)
+
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => togglePantryCandidate(item.id)}
+                      style={({ pressed }) => [
+                        styles.detectedCard,
+                        styles.pantryCandidateCard,
+                        selected && styles.detectedCardSelected,
+                        pressed && styles.detectedCardPressed,
+                      ]}
+                    >
+                      <View style={styles.detectedIcon}>
+                        <Ionicons name="basket-outline" size={24} color="#ffffff" />
+                      </View>
+                      <Text style={styles.detectedName} numberOfLines={2}>{item.displayName}</Text>
+                      <Text style={styles.detectedQuantity} numberOfLines={1}>常备 pantry</Text>
+                      <View style={styles.detectedMetaRow}>
+                        <Text style={styles.confidenceText}>不计入冰箱库存</Text>
+                        <Ionicons
+                          name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={18}
+                          color={selected ? '#1f5945' : '#9c9087'}
+                        />
+                      </View>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+          ) : null}
+
           <Pressable
             disabled={
               flowStatus === 'confirming'
-              || confirmableItemCount === 0
+              || totalConfirmableCount === 0
               || selectedItemCount === 0
             }
             onPress={confirmSelectedItems}
@@ -815,7 +931,7 @@ export default function DevFridgeRecognitionCheck() {
               pressed && flowStatus !== 'confirming' && styles.confirmButtonPressed,
               (
                 flowStatus === 'confirming'
-                || confirmableItemCount === 0
+                || totalConfirmableCount === 0
                 || selectedItemCount === 0
               ) && styles.disabledButton,
             ]}
@@ -1419,6 +1535,37 @@ const styles = StyleSheet.create({
   },
   detectedCardPressed: {
     transform: [{ scale: 0.99 }],
+  },
+  pantryCandidatePanel: {
+    borderColor: '#ead2b8',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 14,
+    padding: 14,
+    backgroundColor: '#fff4e8',
+  },
+  pantryCandidateHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  pantryCandidateCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  pantryCandidateTitle: {
+    color: '#3a3029',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  pantryCandidateText: {
+    color: '#75685f',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  pantryCandidateCard: {
+    backgroundColor: '#fffaf4',
   },
   detectedIcon: {
     alignItems: 'center',
