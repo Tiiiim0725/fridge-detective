@@ -144,6 +144,10 @@ function buildResultForCandidate(
   const availableEquipmentKeys = normalizeAvailableEquipment(input.equipmentKeys)
   const fridgeIngredientKeys = unique(input.fridgeIngredientKeys)
   const pantryItemKeys = unique(input.pantryItemKeys)
+  const availableFoodKeys = unique([
+    ...fridgeIngredientKeys,
+    ...pantryItemKeys,
+  ])
   const avoidIngredientKeys = preferences?.avoidIngredientKeys ?? []
   const activeDietaryRules = unique((preferences?.dietaryRules ?? []).filter((key) => key !== 'none'))
   const cookTimeLimitMinutes = getCookTimeLimitMinutes(preferences?.cookTimePreferenceKey)
@@ -171,7 +175,7 @@ function buildResultForCandidate(
   const coreIngredientKeys = getCoreIngredientKeys(candidate, metadata)
   const optionalIngredientKeys = getOptionalIngredientKeys(candidate, metadata)
   const pantryMatchKeys = getPantryMatchKeys(candidate, metadata)
-  const matchedCoreIngredients = intersect(coreIngredientKeys, fridgeIngredientKeys)
+  const matchedCoreIngredients = intersect(coreIngredientKeys, availableFoodKeys)
   const missingCoreIngredients = coreIngredientKeys.filter((key) => !matchedCoreIngredients.includes(key))
   const matchedOptionalIngredients = intersect(optionalIngredientKeys, fridgeIngredientKeys)
   const matchedPantryItems = intersect(pantryMatchKeys, pantryItemKeys)
