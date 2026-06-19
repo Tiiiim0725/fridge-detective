@@ -1,5 +1,5 @@
 // services/recipeService.ts
-// Recipe / Ingredient Foundation v0.1 - Public read-only recipe service.
+// Recipe / Ingredient Foundation v0.2 - Public read-only recipe service.
 
 import { supabase } from '@/lib/supabase'
 import { getIngredientDictionary } from '@/services/ingredientService'
@@ -16,6 +16,8 @@ import type {
   RecipeDifficultyKey,
   RecipeIngredient,
   RecipeIngredientDetail,
+  RecipeMealStyleKey,
+  RecipeRecommendationMetadata,
   RecipeSceneKey,
   RecipeStep,
   RecipeSubstitution,
@@ -23,7 +25,7 @@ import type {
   RecipeTool,
   UnitKey,
 } from '@/types/recipe'
-import type { KitchenEquipmentKey, MealStyleKey } from '@/types/profile'
+import type { KitchenEquipmentKey } from '@/types/profile'
 
 interface RecipeRow {
   id: string
@@ -41,6 +43,7 @@ interface RecipeRow {
   meal_style_keys: string[]
   flavor_profile_keys: string[]
   scene_keys: string[]
+  recommendation_metadata: RecipeRecommendationMetadata | null
   cover_image_url: string | null
   card_image_url: string | null
   is_active: boolean
@@ -138,9 +141,10 @@ function mapRecipeRow(row: RecipeRow): Recipe {
     cookTimeMinutes: row.cook_time_minutes,
     servingCount: row.serving_count,
     estimatedCostLevel: row.estimated_cost_level as RecipeCostLevelKey | null,
-    mealStyleKeys: row.meal_style_keys as MealStyleKey[],
+    mealStyleKeys: row.meal_style_keys as RecipeMealStyleKey[],
     flavorProfileKeys: row.flavor_profile_keys as FlavorProfileKey[],
     sceneKeys: row.scene_keys as RecipeSceneKey[],
+    recommendationMetadata: row.recommendation_metadata ?? null,
     coverImageUrl: row.cover_image_url,
     cardImageUrl: row.card_image_url,
     isActive: row.is_active,
