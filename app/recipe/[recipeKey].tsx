@@ -11,6 +11,7 @@ import {
 } from 'react-native'
 
 import { getRecipeDetail } from '@/services/recipeService'
+import { getTutorialOverview } from '@/services/tutorialService'
 import { KITCHEN_EQUIPMENT_OPTIONS } from '@/types/profile'
 import type {
   IngredientRoleKey,
@@ -97,6 +98,7 @@ export default function RecipeDetailScreen() {
 
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [detail, setDetail] = useState<RecipeDetail | null>(null)
+  const [tutorialStepCount, setTutorialStepCount] = useState(0)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const loadDetail = useCallback(async () => {
@@ -108,11 +110,20 @@ export default function RecipeDetailScreen() {
 
     setStatus('loading')
     setErrorMessage(null)
+    setTutorialStepCount(0)
 
     try {
       const result = await getRecipeDetail(recipeKey)
       setDetail(result)
       setStatus('success')
+
+      try {
+        const tutorial = await getTutorialOverview(recipeKey)
+        setTutorialStepCount(tutorial?.stepCount ?? 0)
+      } catch {
+        // Recipe details remain useful while Tutorial Core is unavailable.
+        setTutorialStepCount(0)
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
       setStatus('error')
@@ -187,18 +198,40 @@ export default function RecipeDetailScreen() {
             </View>
           </View>
 
-          <View style={styles.cookingEntry}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={tutorialStepCount > 0 ? '开始跟做' : '精细教程尚未开放'}
+            disabled={tutorialStepCount === 0}
+            onPress={() => router.push({
+              pathname: '/recipe/[recipeKey]/cook',
+              params: { recipeKey: detail.recipe.recipeKey },
+            })}
+            style={({ pressed }) => [
+              styles.cookingEntry,
+              tutorialStepCount === 0 && styles.cookingEntryDisabled,
+              pressed && tutorialStepCount > 0 && styles.cookingEntryPressed,
+            ]}
+          >
             <View style={styles.cookingEntryIcon}>
               <Ionicons name="play-circle-outline" size={24} color="#fff8f1" />
             </View>
             <View style={styles.cookingEntryCopy}>
               <Text style={styles.cookingEntryTitle}>开始跟做</Text>
-              <Text style={styles.cookingEntryText}>精细教程准备中，当前可先查看下方概括步骤。</Text>
+              <Text style={styles.cookingEntryText}>
+                {tutorialStepCount > 0
+                  ? `${tutorialStepCount} 步精细教程，进度会自动保存。`
+                  : '这道菜的精细教程还在准备中，当前可先查看下方概括步骤。'}
+              </Text>
             </View>
-            <View style={styles.disabledPill}>
-              <Text style={styles.disabledPillText}>未开放</Text>
+            <View style={tutorialStepCount > 0 ? styles.activePill : styles.disabledPill}>
+              <Text style={tutorialStepCount > 0 ? styles.activePillText : styles.disabledPillText}>
+                {tutorialStepCount > 0 ? '开始' : '未开放'}
+              </Text>
+              {tutorialStepCount > 0 ? (
+                <Ionicons name="chevron-forward" size={14} color="#2f493e" />
+              ) : null}
             </View>
-          </View>
+          </Pressable>
 
           <Section title="食材">
             <View style={styles.rowList}>
@@ -412,6 +445,12 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
   },
+  cookingEntryDisabled: {
+    opacity: 0.74,
+  },
+  cookingEntryPressed: {
+    backgroundColor: '#f5eadf',
+  },
   cookingEntryIcon: {
     alignItems: 'center',
     aspectRatio: 1,
@@ -444,6 +483,20 @@ const styles = StyleSheet.create({
   },
   disabledPillText: {
     color: '#81766d',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  activePill: {
+    alignItems: 'center',
+    backgroundColor: '#e4eee8',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  activePillText: {
+    color: '#2f493e',
     fontSize: 12,
     fontWeight: '800',
   },
