@@ -62,6 +62,7 @@ export type UserProfileFlowMode = 'onboarding' | 'settings' | 'dev'
 
 export type UserProfileFlowProps = {
   mode: UserProfileFlowMode
+  onBack?: () => void
   onSaved?: () => void | Promise<void>
   showDebug?: boolean
 }
@@ -107,6 +108,7 @@ function getEquipmentLabel(key: KitchenEquipmentKey): string {
 
 export function UserProfileFlow({
   mode,
+  onBack,
   onSaved,
   showDebug = false,
 }: UserProfileFlowProps) {
@@ -392,7 +394,17 @@ export function UserProfileFlow({
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Ionicons name="menu-outline" size={25} color="#5f554d" />
+          <Pressable
+            disabled={!onBack}
+            onPress={onBack}
+            style={styles.topBarButton}
+          >
+            <Ionicons
+              name={onBack ? 'arrow-back-outline' : 'menu-outline'}
+              size={25}
+              color="#5f554d"
+            />
+          </Pressable>
           <Text style={styles.brand}>冰箱侦探</Text>
           <View style={styles.avatar}>
             <Ionicons name="person" size={18} color="#fff8f1" />
@@ -1141,6 +1153,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
     backgroundColor: selectedColor,
+  },
+  topBarButton: {
+    alignItems: 'center',
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
   },
   fullWidthSaveButton: {
     flex: 1,
