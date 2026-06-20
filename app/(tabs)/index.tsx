@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -90,7 +90,10 @@ function RecipeCard({
 
   return (
     <Pressable
-      onPress={() => router.push(`/recipe/${item.recipe.recipeKey}`)}
+      onPress={() => router.push({
+        pathname: '/recipe/[recipeKey]',
+        params: { recipeKey: item.recipe.recipeKey },
+      })}
       style={({ pressed }) => [
         styles.recipeCard,
         pressed && styles.recipeCardPressed,
@@ -175,6 +178,8 @@ function RecipeCard({
 }
 
 export default function HomeScreen() {
+  const router = useRouter()
+  const { fridgeUpdated } = useLocalSearchParams<{ fridgeUpdated?: string }>()
   const [status, setStatus] = useState<LoadStatus>('idle')
   const [runResult, setRunResult] = useState<RecipeRecommendationRunResult | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -248,6 +253,13 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
+      {fridgeUpdated === '1' ? (
+        <View style={styles.updateNotice}>
+          <Ionicons name="checkmark-circle" size={20} color="#34785c" />
+          <Text style={styles.updateNoticeText}>冰箱已更新，推荐已根据最新库存刷新。</Text>
+        </View>
+      ) : null}
+
       {runResult ? (
         <View style={styles.summaryBand}>
           <View style={styles.summaryItem}>
@@ -267,18 +279,27 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      <View style={styles.fridgePrompt}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="拍照更新冰箱"
+        onPress={() => router.push('/fridge-scan')}
+        style={({ pressed }) => [
+          styles.fridgePrompt,
+          pressed && styles.fridgePromptPressed,
+        ]}
+      >
         <View style={styles.fridgePromptIcon}>
           <Ionicons name="camera-outline" size={22} color="#fff8f1" />
         </View>
         <View style={styles.fridgePromptCopy}>
           <Text style={styles.fridgePromptTitle}>拍一下冰箱，推荐会更准</Text>
-          <Text style={styles.fridgePromptText}>拍照更新即将开放，当前推荐已根据已有库存计算。</Text>
+          <Text style={styles.fridgePromptText}>拍清主要食材，确认后会自动刷新推荐。</Text>
         </View>
-        <View style={styles.disabledActionPill}>
-          <Text style={styles.disabledActionText}>待接入</Text>
+        <View style={styles.fridgePromptAction}>
+          <Text style={styles.fridgePromptActionText}>去更新</Text>
+          <Ionicons name="chevron-forward" size={15} color="#8f4b25" />
         </View>
-      </View>
+      </Pressable>
 
       {status === 'loading' ? (
         <View style={styles.statePanel}>
@@ -451,6 +472,9 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 14,
   },
+  fridgePromptPressed: {
+    backgroundColor: '#f7ecdf',
+  },
   fridgePromptIcon: {
     alignItems: 'center',
     aspectRatio: 1,
@@ -475,16 +499,37 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 2,
   },
-  disabledActionPill: {
-    backgroundColor: '#ede5dc',
+  fridgePromptAction: {
+    alignItems: 'center',
+    backgroundColor: '#f4e4d4',
     borderRadius: 8,
+    flexDirection: 'row',
+    gap: 2,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  disabledActionText: {
-    color: '#81766d',
+  fridgePromptActionText: {
+    color: '#8f4b25',
     fontSize: 12,
     fontWeight: '800',
+  },
+  updateNotice: {
+    alignItems: 'center',
+    backgroundColor: '#edf7f1',
+    borderColor: '#c6dfd1',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  updateNoticeText: {
+    color: '#285f49',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   recipeList: {
     gap: 12,
