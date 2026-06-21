@@ -203,6 +203,28 @@ function iconForItemName(name: string): IoniconName {
   return 'restaurant-outline'
 }
 
+function dedupeScanItemsByIngredientKey(items: FridgeScanItem[]): FridgeScanItem[] {
+  const itemsByIngredientKey = new Map<string, FridgeScanItem>()
+
+  for (const item of items) {
+    if (!item.ingredientKey) continue
+
+    const existing = itemsByIngredientKey.get(item.ingredientKey)
+    if (!existing) {
+      itemsByIngredientKey.set(item.ingredientKey, item)
+      continue
+    }
+
+    const existingScore = (existing.needsReview ? 0 : 2) + (existing.confidence ?? 0)
+    const nextScore = (item.needsReview ? 0 : 2) + (item.confidence ?? 0)
+    if (nextScore > existingScore) {
+      itemsByIngredientKey.set(item.ingredientKey, item)
+    }
+  }
+
+  return Array.from(itemsByIngredientKey.values())
+}
+
 export function FridgeRecognitionFlow({
   mode,
   onBack,
@@ -239,12 +261,18 @@ export function FridgeRecognitionFlow({
     [pantryScanItems]
   )
   const confirmableItems = useMemo(
-    () => recognizedItems.filter((item) => item.ingredientKey !== null && !pantryScanItemIds.has(item.id)),
+    () => dedupeScanItemsByIngredientKey(
+      recognizedItems.filter((item) => item.ingredientKey !== null && !pantryScanItemIds.has(item.id))
+    ),
     [recognizedItems, pantryScanItemIds]
   )
+  const dedupedPantryScanItems = useMemo(
+    () => dedupeScanItemsByIngredientKey(pantryScanItems),
+    [pantryScanItems]
+  )
   const pantryCandidateItems = useMemo(
-    () => [...pantryScanItems, ...localManualPantryItems],
-    [pantryScanItems, localManualPantryItems]
+    () => [...dedupedPantryScanItems, ...localManualPantryItems],
+    [dedupedPantryScanItems, localManualPantryItems]
   )
   const selectableItemIds = useMemo(
     () => [
@@ -265,7 +293,7 @@ export function FridgeRecognitionFlow({
   const confirmableItemCount = selectableItemIds.length
   const pantryCandidateCount = selectablePantryItemIds.length
   const totalConfirmableCount = confirmableItemCount + pantryCandidateCount
-  const unmatchedItemCount = recognizedItems.length - confirmableItems.length - pantryScanItems.length
+  const unmatchedItemCount = recognizedItems.filter((item) => item.ingredientKey === null).length
   const currentGuideStep = getGuideStep(photos.length)
   const isBusy = flowStatus === 'recognizing' || flowStatus === 'confirming' || manualAdding
   const scannerLabel = flowStatus === 'recognizing'
@@ -485,7 +513,7 @@ export function FridgeRecognitionFlow({
       setRecognizedItems(result.items)
       setPantryScanItems(splitItems.pantryItems)
       setSelectedItemIds(
-        splitItems.fridgeItems
+        dedupeScanItemsByIngredientKey(splitItems.fridgeItems)
           .map((item) => item.id)
       )
       setSelectedPantryItemIds([])
@@ -555,7 +583,7 @@ export function FridgeRecognitionFlow({
       confirmableItems.some((item) => item.id === id)
     ))
     const selectedLocalManualItems = localManualItems.filter((item) => selectedItemIds.includes(item.id))
-    const selectedPantryScanItems = pantryScanItems.filter((item) => selectedPantryItemIds.includes(item.id))
+    const selectedPantryScanItems = dedupedPantryScanItems.filter((item) => selectedPantryItemIds.includes(item.id))
     const selectedLocalManualPantryItems = localManualPantryItems.filter((item) => selectedPantryItemIds.includes(item.id))
 
     if (
@@ -581,22 +609,28 @@ export function FridgeRecognitionFlow({
       const savedManualItems = selectedLocalManualItems.length > 0
         ? await confirmManualFridgeItems(selectedLocalManualItems)
         : []
-      const savedPantryItems = selectedPantryScanItems.length > 0
-        ? await addPantryItems({
+      if (selectedPantryScanItems.length > 0) {
+        await addPantryItems({
             pantryItemKeys: selectedPantryScanItems
               .map((item) => item.ingredientKey)
               .filter((key): key is string => key !== null)
               .map((key) => key as PantryItemKey),
           })
-        : []
-      const savedManualPantryItems = selectedLocalManualPantryItems.length > 0
-        ? await confirmManualPantryItems(selectedLocalManualPantryItems)
-        : []
+      }
+      if (selectedLocalManualPantryItems.length > 0) {
+        await confirmManualPantryItems(selectedLocalManualPantryItems)
+      }
       const savedItems = [...savedScanItems, ...savedManualItems]
       const activeItems = await getCurrentFridgeItems()
+      const updatedPantryKeyCount = new Set([
+        ...selectedPantryScanItems
+          .map((item) => item.ingredientKey)
+          .filter((key): key is string => key !== null),
+        ...selectedLocalManualPantryItems.map((item) => item.ingredientKey),
+      ]).size
 
       setConfirmedCount(savedItems.length)
-      setConfirmedPantryCount(savedPantryItems.length + savedManualPantryItems.length)
+      setConfirmedPantryCount(updatedPantryKeyCount)
       setCurrentFridgeItems(activeItems)
       setLocalManualItems((current) => current.filter((item) => !selectedItemIds.includes(item.id)))
       setLocalManualPantryItems((current) => current.filter((item) => !selectedPantryItemIds.includes(item.id)))
@@ -986,16 +1020,26 @@ export function FridgeRecognitionFlow({
           <View style={styles.successPanel}>
             <Ionicons name="checkmark-circle-outline" size={30} color="#1f5945" />
             <View style={styles.successCopy}>
-              <Text style={styles.successTitle}>冰箱已更新</Text>
-              <Text style={styles.successText}>
-                {confirmedCount ?? selectedItemCount} 个食材已进入库存，推荐可以刷新了。
+              <Text style={styles.successTitle}>
+                {(confirmedCount ?? 0) > 0
+                  ? (confirmedPantryCount ?? 0) > 0
+                    ? '厨房库存已更新'
+                    : '冰箱已更新'
+                  : '常备项已更新'}
               </Text>
-              {currentFridgeItems.length > 0 ? (
+              <Text style={styles.successText}>
+                {(confirmedCount ?? 0) > 0
+                  ? `${confirmedCount} 个食材已进入库存，推荐可以刷新了。`
+                  : `${confirmedPantryCount ?? 0} 个常备项已更新，推荐可以刷新了。`}
+              </Text>
+              {(confirmedCount ?? 0) > 0 && currentFridgeItems.length > 0 ? (
                 <Text style={styles.inventoryText} numberOfLines={2}>
                   当前库存：{currentFridgeItems.slice(0, 5).map((item) => item.displayName).join('、')}
                 </Text>
               ) : null}
-              {typeof confirmedPantryCount === 'number' && confirmedPantryCount > 0 ? (
+              {(confirmedCount ?? 0) > 0
+              && typeof confirmedPantryCount === 'number'
+              && confirmedPantryCount > 0 ? (
                 <Text style={styles.inventoryText}>
                   另外有 {confirmedPantryCount} 个常备项已更新。
                 </Text>
