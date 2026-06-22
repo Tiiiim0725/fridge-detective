@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,6 +41,15 @@ type LocalPhotoStatus = 'local' | 'uploading' | 'recognizing' | 'done' | 'error'
 type FlowStatus = 'idle' | 'recognizing' | 'ready' | 'confirming' | 'success' | 'error'
 type PhotoSource = 'camera' | 'url'
 type IoniconName = keyof typeof Ionicons.glyphMap
+
+export type FridgeRecognitionFlowMode = 'formal' | 'dev'
+
+export type FridgeRecognitionFlowProps = {
+  mode: FridgeRecognitionFlowMode
+  onBack?: () => void
+  onContinue?: () => void
+  showDebug?: boolean
+}
 
 type LocalPhoto = {
   id: string
@@ -193,7 +203,34 @@ function iconForItemName(name: string): IoniconName {
   return 'restaurant-outline'
 }
 
-export default function DevFridgeRecognitionCheck() {
+function dedupeScanItemsByIngredientKey(items: FridgeScanItem[]): FridgeScanItem[] {
+  const itemsByIngredientKey = new Map<string, FridgeScanItem>()
+
+  for (const item of items) {
+    if (!item.ingredientKey) continue
+
+    const existing = itemsByIngredientKey.get(item.ingredientKey)
+    if (!existing) {
+      itemsByIngredientKey.set(item.ingredientKey, item)
+      continue
+    }
+
+    const existingScore = (existing.needsReview ? 0 : 2) + (existing.confidence ?? 0)
+    const nextScore = (item.needsReview ? 0 : 2) + (item.confidence ?? 0)
+    if (nextScore > existingScore) {
+      itemsByIngredientKey.set(item.ingredientKey, item)
+    }
+  }
+
+  return Array.from(itemsByIngredientKey.values())
+}
+
+export function FridgeRecognitionFlow({
+  mode,
+  onBack,
+  onContinue,
+  showDebug = false,
+}: FridgeRecognitionFlowProps) {
   const [photos, setPhotos] = useState<LocalPhoto[]>([])
   const [flowStatus, setFlowStatus] = useState<FlowStatus>('idle')
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null)
@@ -224,12 +261,18 @@ export default function DevFridgeRecognitionCheck() {
     [pantryScanItems]
   )
   const confirmableItems = useMemo(
-    () => recognizedItems.filter((item) => item.ingredientKey !== null && !pantryScanItemIds.has(item.id)),
+    () => dedupeScanItemsByIngredientKey(
+      recognizedItems.filter((item) => item.ingredientKey !== null && !pantryScanItemIds.has(item.id))
+    ),
     [recognizedItems, pantryScanItemIds]
   )
+  const dedupedPantryScanItems = useMemo(
+    () => dedupeScanItemsByIngredientKey(pantryScanItems),
+    [pantryScanItems]
+  )
   const pantryCandidateItems = useMemo(
-    () => [...pantryScanItems, ...localManualPantryItems],
-    [pantryScanItems, localManualPantryItems]
+    () => [...dedupedPantryScanItems, ...localManualPantryItems],
+    [dedupedPantryScanItems, localManualPantryItems]
   )
   const selectableItemIds = useMemo(
     () => [
@@ -250,7 +293,7 @@ export default function DevFridgeRecognitionCheck() {
   const confirmableItemCount = selectableItemIds.length
   const pantryCandidateCount = selectablePantryItemIds.length
   const totalConfirmableCount = confirmableItemCount + pantryCandidateCount
-  const unmatchedItemCount = recognizedItems.length - confirmableItems.length - pantryScanItems.length
+  const unmatchedItemCount = recognizedItems.filter((item) => item.ingredientKey === null).length
   const currentGuideStep = getGuideStep(photos.length)
   const isBusy = flowStatus === 'recognizing' || flowStatus === 'confirming' || manualAdding
   const scannerLabel = flowStatus === 'recognizing'
@@ -277,27 +320,39 @@ export default function DevFridgeRecognitionCheck() {
         source: 'manual' as const,
       })),
     ]
-    : mockIngredientsForPreview
+    : mode === 'dev'
+      ? mockIngredientsForPreview
+      : []
 
   async function takePhoto() {
     setPermissionMessage(null)
     setErrorMessage(null)
 
-    const permission = await ImagePicker.requestCameraPermissionsAsync()
+    if (Platform.OS !== 'web') {
+      const permission = await ImagePicker.requestCameraPermissionsAsync()
 
-    if (!permission.granted) {
-      setPermissionMessage('需要相机权限才能拍冰箱照片。你可以在系统设置里打开权限后再试。')
-      return
+      if (!permission.granted) {
+        setPermissionMessage('需要相机权限才能拍冰箱照片。你可以在系统设置里打开权限后再试。')
+        return
+      }
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.82,
-      allowsEditing: false,
-      base64: false,
-      exif: false,
-      cameraType: ImagePicker.CameraType.back,
-    })
+    const result = Platform.OS === 'web'
+      ? await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.82,
+          allowsEditing: false,
+          base64: false,
+          exif: false,
+        })
+      : await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.82,
+          allowsEditing: false,
+          base64: false,
+          exif: false,
+          cameraType: ImagePicker.CameraType.back,
+        })
 
     if (result.canceled || !result.assets?.[0]) {
       return
@@ -458,7 +513,7 @@ export default function DevFridgeRecognitionCheck() {
       setRecognizedItems(result.items)
       setPantryScanItems(splitItems.pantryItems)
       setSelectedItemIds(
-        splitItems.fridgeItems
+        dedupeScanItemsByIngredientKey(splitItems.fridgeItems)
           .map((item) => item.id)
       )
       setSelectedPantryItemIds([])
@@ -528,7 +583,7 @@ export default function DevFridgeRecognitionCheck() {
       confirmableItems.some((item) => item.id === id)
     ))
     const selectedLocalManualItems = localManualItems.filter((item) => selectedItemIds.includes(item.id))
-    const selectedPantryScanItems = pantryScanItems.filter((item) => selectedPantryItemIds.includes(item.id))
+    const selectedPantryScanItems = dedupedPantryScanItems.filter((item) => selectedPantryItemIds.includes(item.id))
     const selectedLocalManualPantryItems = localManualPantryItems.filter((item) => selectedPantryItemIds.includes(item.id))
 
     if (
@@ -554,22 +609,28 @@ export default function DevFridgeRecognitionCheck() {
       const savedManualItems = selectedLocalManualItems.length > 0
         ? await confirmManualFridgeItems(selectedLocalManualItems)
         : []
-      const savedPantryItems = selectedPantryScanItems.length > 0
-        ? await addPantryItems({
+      if (selectedPantryScanItems.length > 0) {
+        await addPantryItems({
             pantryItemKeys: selectedPantryScanItems
               .map((item) => item.ingredientKey)
               .filter((key): key is string => key !== null)
               .map((key) => key as PantryItemKey),
           })
-        : []
-      const savedManualPantryItems = selectedLocalManualPantryItems.length > 0
-        ? await confirmManualPantryItems(selectedLocalManualPantryItems)
-        : []
+      }
+      if (selectedLocalManualPantryItems.length > 0) {
+        await confirmManualPantryItems(selectedLocalManualPantryItems)
+      }
       const savedItems = [...savedScanItems, ...savedManualItems]
       const activeItems = await getCurrentFridgeItems()
+      const updatedPantryKeyCount = new Set([
+        ...selectedPantryScanItems
+          .map((item) => item.ingredientKey)
+          .filter((key): key is string => key !== null),
+        ...selectedLocalManualPantryItems.map((item) => item.ingredientKey),
+      ]).size
 
       setConfirmedCount(savedItems.length)
-      setConfirmedPantryCount(savedPantryItems.length + savedManualPantryItems.length)
+      setConfirmedPantryCount(updatedPantryKeyCount)
       setCurrentFridgeItems(activeItems)
       setLocalManualItems((current) => current.filter((item) => !selectedItemIds.includes(item.id)))
       setLocalManualPantryItems((current) => current.filter((item) => !selectedPantryItemIds.includes(item.id)))
@@ -585,17 +646,25 @@ export default function DevFridgeRecognitionCheck() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Pressable style={styles.menuButton}>
-            <Ionicons name="menu-outline" size={28} color="#4f4741" />
+          <Pressable
+            disabled={!onBack}
+            onPress={onBack}
+            style={styles.menuButton}
+          >
+            <Ionicons
+              name={mode === 'formal' ? 'arrow-back-outline' : 'menu-outline'}
+              size={28}
+              color="#4f4741"
+            />
           </Pressable>
-          <Text style={styles.brand}>储藏室</Text>
+          <Text style={styles.brand}>{mode === 'formal' ? '冰箱侦探' : '储藏室'}</Text>
           <View style={styles.avatar}>
             <Ionicons name="person" size={19} color="#ffffff" />
           </View>
         </View>
 
         <View style={styles.heroCopy}>
-          <Text style={styles.title}>储藏室扫描仪</Text>
+          <Text style={styles.title}>拍一下冰箱</Text>
           <Text style={styles.subtitle}>
             将摄像头对准你的食材。识别结果会先给你确认，再更新冰箱库存。
           </Text>
@@ -661,7 +730,7 @@ export default function DevFridgeRecognitionCheck() {
         <View style={styles.photoPanel}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionKicker}>Photos</Text>
+              <Text style={styles.sectionKicker}>已拍照片</Text>
               <Text style={styles.sectionTitle}>拍摄清单</Text>
             </View>
             <Text style={styles.sectionMeta}>{selectedPhotos.length} 张参与识别</Text>
@@ -715,33 +784,35 @@ export default function DevFridgeRecognitionCheck() {
             </ScrollView>
           )}
 
-          <View style={styles.urlFallbackPanel}>
-            <View style={styles.urlFallbackCopy}>
-              <Text style={styles.urlFallbackTitle}>公网图片测试</Text>
-              <Text style={styles.urlFallbackText}>真机拍照不可用时，可以临时用图片 URL。</Text>
+          {showDebug ? (
+            <View style={styles.urlFallbackPanel}>
+              <View style={styles.urlFallbackCopy}>
+                <Text style={styles.urlFallbackTitle}>公网图片测试</Text>
+                <Text style={styles.urlFallbackText}>真机拍照不可用时，可以临时用图片 URL。</Text>
+              </View>
+              <TextInput
+                value={urlFallback}
+                onChangeText={setUrlFallback}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="https://example.com/fridge.jpg"
+                placeholderTextColor="#9c9087"
+                style={styles.urlInput}
+              />
+              <Pressable
+                disabled={isBusy}
+                onPress={addUrlFallbackPhoto}
+                style={({ pressed }) => [
+                  styles.urlButton,
+                  pressed && !isBusy && styles.urlButtonPressed,
+                  isBusy && styles.disabledButton,
+                ]}
+              >
+                <Ionicons name="link-outline" size={17} color="#1f5945" />
+                <Text style={styles.urlButtonText}>加入</Text>
+              </Pressable>
             </View>
-            <TextInput
-              value={urlFallback}
-              onChangeText={setUrlFallback}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="https://example.com/fridge.jpg"
-              placeholderTextColor="#9c9087"
-              style={styles.urlInput}
-            />
-            <Pressable
-              disabled={isBusy}
-              onPress={addUrlFallbackPhoto}
-              style={({ pressed }) => [
-                styles.urlButton,
-                pressed && !isBusy && styles.urlButtonPressed,
-                isBusy && styles.disabledButton,
-              ]}
-            >
-              <Ionicons name="link-outline" size={17} color="#1f5945" />
-              <Text style={styles.urlButtonText}>加入</Text>
-            </Pressable>
-          </View>
+          ) : null}
         </View>
 
         {permissionMessage ? (
@@ -776,8 +847,8 @@ export default function DevFridgeRecognitionCheck() {
                   : localManualItems.length > 0
                     ? '手动添加的食材会在你确认后进入库存。'
                     : recognizedItems.length > 0
-                      ? `${unmatchedItemCount} 个未匹配项已保留在调试信息中，不会进入正式库存。`
-                      : '拍照识别后，这里会替换成真实候选。'}
+                      ? `${unmatchedItemCount} 个内容没有匹配到标准食材，不会进入正式库存。`
+                      : '拍照识别后，这里会出现一份可以确认的食材清单。'}
               </Text>
             </View>
             <Text style={styles.itemCountPill}>
@@ -876,7 +947,7 @@ export default function DevFridgeRecognitionCheck() {
                 <View style={styles.pantryCandidateCopy}>
                   <Text style={styles.pantryCandidateTitle}>识别到调料 / 常备项</Text>
                   <Text style={styles.pantryCandidateText}>
-                    这些更像常备 pantry，不会进入冰箱库存。选中后会加入常备调料。
+                    这些更像常备调料，不会进入冰箱库存。选中后会加入你的常备项。
                   </Text>
                 </View>
                 <Text style={styles.itemCountPill}>
@@ -949,83 +1020,108 @@ export default function DevFridgeRecognitionCheck() {
           <View style={styles.successPanel}>
             <Ionicons name="checkmark-circle-outline" size={30} color="#1f5945" />
             <View style={styles.successCopy}>
-              <Text style={styles.successTitle}>冰箱已更新</Text>
-              <Text style={styles.successText}>
-                {confirmedCount ?? selectedItemCount} 个食材已进入库存，推荐可以刷新了。
+              <Text style={styles.successTitle}>
+                {(confirmedCount ?? 0) > 0
+                  ? (confirmedPantryCount ?? 0) > 0
+                    ? '厨房库存已更新'
+                    : '冰箱已更新'
+                  : '常备项已更新'}
               </Text>
-              {currentFridgeItems.length > 0 ? (
+              <Text style={styles.successText}>
+                {(confirmedCount ?? 0) > 0
+                  ? `${confirmedCount} 个食材已进入库存，推荐可以刷新了。`
+                  : `${confirmedPantryCount ?? 0} 个常备项已更新，推荐可以刷新了。`}
+              </Text>
+              {(confirmedCount ?? 0) > 0 && currentFridgeItems.length > 0 ? (
                 <Text style={styles.inventoryText} numberOfLines={2}>
                   当前库存：{currentFridgeItems.slice(0, 5).map((item) => item.displayName).join('、')}
                 </Text>
+              ) : null}
+              {(confirmedCount ?? 0) > 0
+              && typeof confirmedPantryCount === 'number'
+              && confirmedPantryCount > 0 ? (
+                <Text style={styles.inventoryText}>
+                  另外有 {confirmedPantryCount} 个常备项已更新。
+                </Text>
+              ) : null}
+              {mode === 'formal' && onContinue ? (
+                <Pressable style={styles.continueButton} onPress={onContinue}>
+                  <Text style={styles.continueButtonText}>查看最新推荐</Text>
+                  <Ionicons name="arrow-forward-outline" size={18} color="#ffffff" />
+                </Pressable>
               ) : null}
             </View>
           </View>
         ) : null}
 
-        <View style={styles.debugPanel}>
-          <Pressable onPress={() => setDebugOpen((open) => !open)} style={styles.debugHeader}>
-            <Text style={styles.debugTitle}>调试信息</Text>
-            <Ionicons
-              name={debugOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
-              size={18}
-              color="#6b625b"
-            />
-          </Pressable>
-          {debugOpen ? (
-            <Text style={styles.debugText}>
-              {JSON.stringify({
-                scanId,
-                flowStatus,
-                photoStatus: photos.map((photo) => ({
-                  id: photo.id,
-                  source: photo.source,
-                  zoneKey: photo.zoneKey,
-                  selected: photo.selected,
-                  status: photo.status,
-                  storagePath: photo.storagePath,
-                  errorMessage: photo.errorMessage,
-                })),
-                photoResults,
-                selectedItemIds,
-                localManualItems,
-                confirmedCount,
-                currentFridgeItems: currentFridgeItems.map((item) => ({
-                  id: item.id,
-                  ingredientKey: item.ingredientKey,
-                  displayName: item.displayName,
-                  quantityKind: item.quantityKind,
-                })),
-              }, null, 2)}
-            </Text>
-          ) : null}
-        </View>
+        {showDebug ? (
+          <View style={styles.debugPanel}>
+            <Pressable onPress={() => setDebugOpen((open) => !open)} style={styles.debugHeader}>
+              <Text style={styles.debugTitle}>调试信息</Text>
+              <Ionicons
+                name={debugOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+                size={18}
+                color="#6b625b"
+              />
+            </Pressable>
+            {debugOpen ? (
+              <Text style={styles.debugText}>
+                {JSON.stringify({
+                  scanId,
+                  flowStatus,
+                  photoStatus: photos.map((photo) => ({
+                    id: photo.id,
+                    source: photo.source,
+                    zoneKey: photo.zoneKey,
+                    selected: photo.selected,
+                    status: photo.status,
+                    storagePath: photo.storagePath,
+                    errorMessage: photo.errorMessage,
+                  })),
+                  photoResults,
+                  selectedItemIds,
+                  localManualItems,
+                  confirmedCount,
+                  currentFridgeItems: currentFridgeItems.map((item) => ({
+                    id: item.id,
+                    ingredientKey: item.ingredientKey,
+                    displayName: item.displayName,
+                    quantityKind: item.quantityKind,
+                  })),
+                }, null, 2)}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        {bottomNavItems.map((item) => (
-          <View
-            key={item.key}
-            style={[
-              styles.bottomNavItem,
-              item.active && styles.bottomNavItemActive,
-            ]}
-          >
-            <Ionicons
-              name={item.icon}
-              size={24}
-              color={item.active ? '#c2652a' : '#7d746c'}
-            />
-            <Text
+      {mode === 'dev' ? (
+        <View style={styles.bottomNav}>
+          {bottomNavItems.map((item) => (
+            <View
+              key={item.key}
               style={[
-                styles.bottomNavLabel,
-                item.active && styles.bottomNavLabelActive,
+                styles.bottomNavItem,
+                item.active && styles.bottomNavItemActive,
               ]}
             >
-              {item.label}
-            </Text>
-          </View>
-        ))}
-      </View>
+              <Ionicons
+                name={item.icon}
+                size={24}
+                color={item.active ? '#c2652a' : '#7d746c'}
+              />
+              <Text
+                style={[
+                  styles.bottomNavLabel,
+                  item.active && styles.bottomNavLabelActive,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {flowStatus === 'recognizing' ? (
         <View style={styles.loadingOverlay}>
@@ -1038,6 +1134,10 @@ export default function DevFridgeRecognitionCheck() {
       ) : null}
     </View>
   )
+}
+
+export default function DevFridgeRecognitionCheck() {
+  return <FridgeRecognitionFlow mode="dev" showDebug />
 }
 
 const styles = StyleSheet.create({
@@ -1712,6 +1812,23 @@ const styles = StyleSheet.create({
     color: '#53675d',
     fontSize: 14,
     lineHeight: 20,
+  },
+  continueButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#c2652a',
+    borderRadius: 24,
+    flexDirection: 'row',
+    gap: 7,
+    justifyContent: 'center',
+    marginTop: 12,
+    minHeight: 46,
+    paddingHorizontal: 20,
+  },
+  continueButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '900',
   },
   inventoryText: {
     color: '#3e5349',

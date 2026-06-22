@@ -58,6 +58,15 @@ import {
 type SaveStatus = 'idle' | 'loading' | 'saving' | 'success' | 'error'
 type IoniconName = keyof typeof Ionicons.glyphMap
 
+export type UserProfileFlowMode = 'onboarding' | 'settings' | 'dev'
+
+export type UserProfileFlowProps = {
+  mode: UserProfileFlowMode
+  onBack?: () => void
+  onSaved?: () => void | Promise<void>
+  showDebug?: boolean
+}
+
 const selectedColor = '#c2652a'
 const inkColor = '#332e29'
 const paperColor = '#fff8f1'
@@ -97,7 +106,12 @@ function getEquipmentLabel(key: KitchenEquipmentKey): string {
   return KITCHEN_EQUIPMENT_OPTIONS.find((option) => option.key === key)?.zhLabel ?? key
 }
 
-export default function DevUserProfileCheck() {
+export function UserProfileFlow({
+  mode,
+  onBack,
+  onSaved,
+  showDebug = false,
+}: UserProfileFlowProps) {
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -332,9 +346,9 @@ export default function DevUserProfileCheck() {
 
     try {
       await ensureProfile()
-      const profile = await updateProfile({
+      let profile = await updateProfile({
         displayName: displayName.trim() || null,
-        onboardingStatus: 'completed',
+        ...(mode !== 'settings' ? { onboardingStatus: 'in_progress' as const } : {}),
       })
       const preferences = await saveUserPreferences({
         cuisinePreferences,
@@ -351,6 +365,13 @@ export default function DevUserProfileCheck() {
       const pantry = await savePantryItems({
         pantryItemKeys: unique(pantryKeys),
       })
+
+      if (mode !== 'settings') {
+        profile = await updateProfile({
+          onboardingStatus: 'completed',
+        })
+      }
+
       const context = await getOnboardingContext()
 
       setDebugContext({
@@ -362,6 +383,7 @@ export default function DevUserProfileCheck() {
       })
       setSuccessMessage('档案已保存，推荐系统可以使用这些偏好了。')
       setStatus('success')
+      await onSaved?.()
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
       setStatus('error')
@@ -372,7 +394,17 @@ export default function DevUserProfileCheck() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Ionicons name="menu-outline" size={25} color="#5f554d" />
+          <Pressable
+            disabled={!onBack}
+            onPress={onBack}
+            style={styles.topBarButton}
+          >
+            <Ionicons
+              name={onBack ? 'arrow-back-outline' : 'menu-outline'}
+              size={25}
+              color="#5f554d"
+            />
+          </Pressable>
           <Text style={styles.brand}>冰箱侦探</Text>
           <View style={styles.avatar}>
             <Ionicons name="person" size={18} color="#fff8f1" />
@@ -383,7 +415,9 @@ export default function DevUserProfileCheck() {
           <View style={styles.heroIcon}>
             <Ionicons name="options-outline" size={30} color={selectedColor} />
           </View>
-          <Text style={styles.title}>Refine Your Profile</Text>
+          <Text style={styles.title}>
+            {mode === 'onboarding' ? '先认识一下你' : '完善你的口味档案'}
+          </Text>
           <Text style={styles.subtitle}>告诉我一点点口味和厨房条件，今晚推荐会更像你。</Text>
         </View>
 
@@ -403,7 +437,7 @@ export default function DevUserProfileCheck() {
 
         <View style={styles.topGrid}>
           <View style={[styles.card, styles.topGridCard]}>
-            <SectionHeader icon="person-outline" title="Profile" />
+            <SectionHeader icon="person-outline" title="怎么称呼你" />
             <Text style={styles.helperText}>这个名字只用于页面称呼，不影响推荐。</Text>
             <TextInput
               value={displayName}
@@ -416,7 +450,7 @@ export default function DevUserProfileCheck() {
           </View>
 
           <View style={[styles.card, styles.topGridCard]}>
-            <SectionHeader icon="timer-outline" title="Cooking Rhythm" />
+            <SectionHeader icon="timer-outline" title="做饭节奏" />
             <Text style={styles.helperText}>默认是 30 分钟以内；第四档表示愿意接受更长准备。</Text>
             <View style={styles.pillWrap}>
               {COOK_TIME_PREFERENCE_OPTIONS.map((option) => (
@@ -432,7 +466,7 @@ export default function DevUserProfileCheck() {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader icon="restaurant-outline" title="Dietary Preferences" />
+          <SectionHeader icon="restaurant-outline" title="饮食方式" />
           <Text style={styles.helperText}>这里只保留会影响推荐过滤的核心饮食限制。</Text>
           <View style={styles.optionGrid}>
             {DIETARY_RULE_OPTIONS.map((option) => (
@@ -449,7 +483,7 @@ export default function DevUserProfileCheck() {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader icon="compass-outline" title="Cuisine Direction" />
+          <SectionHeader icon="compass-outline" title="喜欢的菜系" />
           <Text style={styles.helperText}>建议保留中式家常菜和西餐简餐；传统菜系最多选 2 个。</Text>
           <View style={styles.pillWrap}>
             {CUISINE_PREFERENCE_OPTIONS.map((option) => (
@@ -464,7 +498,7 @@ export default function DevUserProfileCheck() {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader icon="sparkles-outline" title="Meal Style" />
+          <SectionHeader icon="sparkles-outline" title="想吃的类型" />
           <Text style={styles.helperText}>这些是推荐排序的轻量偏好，不是硬性限制。</Text>
           <View style={styles.pillWrap}>
             {MEAL_STYLE_OPTIONS.map((option) => (
@@ -479,7 +513,7 @@ export default function DevUserProfileCheck() {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader icon="school-outline" title="Cooking Skill" />
+          <SectionHeader icon="school-outline" title="做饭熟练度" />
           <View style={styles.optionGrid}>
             {COOKING_SKILL_OPTIONS.map((option) => (
               <OptionCard
@@ -495,7 +529,7 @@ export default function DevUserProfileCheck() {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader icon="close-circle-outline" title="Avoid / Allergens" />
+          <SectionHeader icon="close-circle-outline" title="忌口与过敏" />
           <Text style={styles.helperText}>具体不想吃的食材会先匹配标准食材字典，匹配不到不会写入。</Text>
           <View style={styles.inputRow}>
             <TextInput
@@ -536,7 +570,7 @@ export default function DevUserProfileCheck() {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader icon="construct-outline" title="Kitchen Equipment" />
+          <SectionHeader icon="construct-outline" title="厨房设备" />
           <Text style={styles.helperText}>
             {`基础工具默认假设拥有：${DEFAULT_ASSUMED_KITCHEN_EQUIPMENT_KEYS.map(getEquipmentLabel).join('、')}。这里只问会影响菜谱的关键厨具。`}
           </Text>
@@ -557,7 +591,7 @@ export default function DevUserProfileCheck() {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader icon="basket-outline" title="Pantry" />
+          <SectionHeader icon="basket-outline" title="常备调料与干货" />
           <Text style={styles.helperText}>盐和糖默认不问。九宫格用于高频 pantry，其他调料可以自由输入。</Text>
           <View style={styles.basicPantryBox}>
             <Text style={styles.basicPantryText}>默认已有：{defaultPantryKeys.map(getPantryLabel).join('、')}</Text>
@@ -630,42 +664,53 @@ export default function DevUserProfileCheck() {
           </View>
         </View>
 
-        <View style={styles.debugPanel}>
-          <Pressable style={styles.debugHeader} onPress={() => setDebugOpen((open) => !open)}>
-            <Text style={styles.debugTitle}>调试信息</Text>
-            <Ionicons name={debugOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={18} color="#6b625b" />
-          </Pressable>
-          {debugOpen ? (
-            <Text style={styles.debugText}>{JSON.stringify(debugContext, null, 2)}</Text>
-          ) : null}
-        </View>
+        {showDebug ? (
+          <View style={styles.debugPanel}>
+            <Pressable style={styles.debugHeader} onPress={() => setDebugOpen((open) => !open)}>
+              <Text style={styles.debugTitle}>调试信息</Text>
+              <Ionicons name={debugOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={18} color="#6b625b" />
+            </Pressable>
+            {debugOpen ? (
+              <Text style={styles.debugText}>{JSON.stringify(debugContext, null, 2)}</Text>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <Pressable
-          style={({ pressed }: { pressed: boolean }) => [
-            styles.secondaryButton,
-            pressed && styles.buttonPressed,
-          ]}
-          onPress={() => setDebugOpen((open) => !open)}
-        >
-          <Text style={styles.secondaryButtonText}>Cancel</Text>
-        </Pressable>
+        {showDebug ? (
+          <Pressable
+            style={({ pressed }: { pressed: boolean }) => [
+              styles.secondaryButton,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => setDebugOpen((open) => !open)}
+          >
+            <Text style={styles.secondaryButtonText}>调试信息</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           disabled={isBusy}
           style={({ pressed }: { pressed: boolean }) => [
             styles.saveButton,
+            !showDebug && styles.fullWidthSaveButton,
             pressed && !isBusy && styles.buttonPressed,
             isBusy && styles.disabledButton,
           ]}
           onPress={saveProfile}
         >
           {isBusy ? <ActivityIndicator color="#ffffff" /> : null}
-          <Text style={styles.saveButtonText}>Save Profile</Text>
+          <Text style={styles.saveButtonText}>
+            {mode === 'settings' ? '保存修改' : '保存并继续'}
+          </Text>
         </Pressable>
       </View>
     </View>
   )
+}
+
+export default function DevUserProfileCheck() {
+  return <UserProfileFlow mode="dev" showDebug />
 }
 
 function SectionHeader({ icon, title }: { icon: IoniconName; title: string }) {
@@ -1108,6 +1153,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
     backgroundColor: selectedColor,
+  },
+  topBarButton: {
+    alignItems: 'center',
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  fullWidthSaveButton: {
+    flex: 1,
+    maxWidth: 620,
   },
   saveButtonText: {
     color: '#ffffff',
