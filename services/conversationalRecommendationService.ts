@@ -178,6 +178,10 @@ function buildIngredientKeySet(ingredients: Ingredient[]): Set<string> {
   return new Set(ingredients.map((ingredient) => ingredient.ingredientKey))
 }
 
+function buildIngredientMap(ingredients: Ingredient[]): Map<string, Ingredient> {
+  return new Map(ingredients.map((ingredient) => [ingredient.ingredientKey, ingredient]))
+}
+
 function normalizeLookupText(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
@@ -378,6 +382,89 @@ function sanitizeAiReason(value: unknown): string | null {
   return reason.length > 0 ? reason.slice(0, 80) : null
 }
 
+function getIngredientLookupTexts(ingredient: Ingredient): string[] {
+  return [
+    ingredient.ingredientKey,
+    ingredient.zhName,
+    ingredient.enName,
+    ...ingredient.aliases,
+  ]
+    .map(normalizeLookupText)
+    .filter((value) => value.length >= 2)
+}
+
+function reasonMentionsIngredient(reason: string, ingredient: Ingredient): boolean {
+  const normalizedReason = normalizeLookupText(reason)
+  return getIngredientLookupTexts(ingredient).some((value) => normalizedReason.includes(value))
+}
+
+function reasonClaimsMissingDesiredIngredient(input: {
+  reason: string
+  parsedIntent: ParsedRecipeIntent | null
+  ingredientByKey: Map<string, Ingredient>
+  recipeIngredientKeys: string[]
+}): boolean {
+  const desiredIngredientKeys = input.parsedIntent?.desiredIngredientKeys ?? []
+
+  if (desiredIngredientKeys.length === 0) {
+    return false
+  }
+
+  const recipeIngredientKeySet = new Set(input.recipeIngredientKeys)
+
+  return desiredIngredientKeys.some((ingredientKey) => {
+    if (recipeIngredientKeySet.has(ingredientKey)) {
+      return false
+    }
+
+    const ingredient = input.ingredientByKey.get(ingredientKey)
+    return ingredient ? reasonMentionsIngredient(input.reason, ingredient) : false
+  })
+}
+
+function buildSafeAiReason(
+  item: RecipeRecommendationResult,
+  parsedIntent: ParsedRecipeIntent | null
+): string {
+  if (
+    typeof parsedIntent?.maxMinutes === 'number' &&
+    item.recipe.totalTimeMinutes <= parsedIntent.maxMinutes
+  ) {
+    return '制作较快，适合现在的时间需求。'
+  }
+
+  if ((parsedIntent?.desiredIngredientKeys ?? []).length > 0) {
+    return '整体更接近你的描述和当前食材。'
+  }
+
+  return '和你的冰箱食材与偏好比较匹配。'
+}
+
+function sanitizeAiReasonForRecipe(input: {
+  item: RecipeRecommendationResult
+  reason: string | null
+  parsedIntent: ParsedRecipeIntent | null
+  ingredientByKey: Map<string, Ingredient>
+  ingredientKeysByRecipeKey: Map<string, string[]>
+}): string | null {
+  if (!input.reason) {
+    return null
+  }
+
+  const recipeIngredientKeys = input.ingredientKeysByRecipeKey.get(input.item.recipe.recipeKey) ?? []
+
+  if (reasonClaimsMissingDesiredIngredient({
+    reason: input.reason,
+    parsedIntent: input.parsedIntent,
+    ingredientByKey: input.ingredientByKey,
+    recipeIngredientKeys,
+  })) {
+    return buildSafeAiReason(input.item, input.parsedIntent)
+  }
+
+  return input.reason
+}
+
 function applyTemporaryHardFilters(
   recommendations: RecipeRecommendationResult[],
   parsedIntent: ParsedRecipeIntent | null,
@@ -452,6 +539,9 @@ function buildFinalAiRecommendations(input: {
   deterministicRecommendations: RecipeRecommendationResult[]
   safeRecommendations: RecipeRecommendationResult[]
   aiResponse: RerankRecipeRecommendationsResponse
+  parsedIntent: ParsedRecipeIntent | null
+  ingredientByKey: Map<string, Ingredient>
+  ingredientKeysByRecipeKey: Map<string, string[]>
   limit: number
 }): {
   recommendations: ConversationalRecipeRecommendation[]
@@ -490,8 +580,25 @@ function buildFinalAiRecommendations(input: {
     return null
   }
 
+  const aiReasonByRecipeKey = new Map<string, string>()
+
+  for (const item of recommendations) {
+    const recipeKey = item.recipe.recipeKey
+    const reason = sanitizeAiReasonForRecipe({
+      item,
+      reason: ordering.aiReasonByRecipeKey.get(recipeKey) ?? null,
+      parsedIntent: input.parsedIntent,
+      ingredientByKey: input.ingredientByKey,
+      ingredientKeysByRecipeKey: input.ingredientKeysByRecipeKey,
+    })
+
+    if (reason) {
+      aiReasonByRecipeKey.set(recipeKey, reason)
+    }
+  }
+
   return {
-    recommendations: toConversationalRecommendations(recommendations, ordering.aiReasonByRecipeKey),
+    recommendations: toConversationalRecommendations(recommendations, aiReasonByRecipeKey),
     invalidRecipeKeyCount: ordering.invalidRecipeKeyCount,
   }
 }
@@ -643,6 +750,7 @@ export async function getConversationalRecipeRecommendations(
   }
 
   const ingredientKeySet = buildIngredientKeySet(ingredients)
+  const ingredientByKey = buildIngredientMap(ingredients)
   const ingredientKeysByRecipeKey = buildRecipeIngredientKeyMap(candidates)
   const localHardIntent = parseLocalHardIntent(userMessage, ingredients)
   const candidatePayloads = deterministicRecommendations.map((item) => buildCandidatePayload(
@@ -715,6 +823,9 @@ export async function getConversationalRecipeRecommendations(
     deterministicRecommendations,
     safeRecommendations,
     aiResponse,
+    parsedIntent,
+    ingredientByKey,
+    ingredientKeysByRecipeKey,
     limit: finalLimit,
   })
 

@@ -302,6 +302,8 @@ function buildUserPrompt(input: ReturnType<typeof parseRequestBody>): string {
       'Rank as many candidates as possible, ideally all candidates.',
       'Temporary avoided ingredients and maxMinutes should be extracted if clearly stated.',
       'For ingredient intent keys, only use ingredientKeys visible in the candidate list.',
+      'For aiReason, never claim a recipe has a desired ingredient unless that ingredient key is present in that candidate ingredientKeys list.',
+      'If a desired ingredient is not present in a candidate, explain a real match such as speed, difficulty, cuisine, or fridge fit instead.',
       'Cuisine, flavor, desired ingredients, and mood are soft preferences.',
       'If a nullable field is unknown, use an empty string or omit optional nested fields.',
       'Keep aiReason short, concrete, and in Chinese.',
