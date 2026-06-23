@@ -87,6 +87,8 @@ export default function MeScreen() {
   const priorityFridgeCount = data?.fridgeItems.filter((item) => (
     item.timing.status === 'use_soon' || item.timing.status === 'past_suggested'
   )).length ?? 0
+  const pastSuggestedCount = data?.fridgeItems.filter((item) => item.timing.status === 'past_suggested').length ?? 0
+  const useSoonCount = data?.fridgeItems.filter((item) => item.timing.status === 'use_soon').length ?? 0
 
   return (
     <View style={styles.screen}>
@@ -187,11 +189,27 @@ export default function MeScreen() {
                       <Text style={styles.fridgeStatValue}>{data.fridgeItems.length}</Text>
                       <Text style={styles.fridgeStatLabel}>当前食材</Text>
                     </View>
-                    <View style={styles.fridgeStat}>
+                    <View style={[styles.fridgeStat, priorityFridgeCount > 0 && styles.priorityStat]}>
                       <Text style={styles.fridgeStatValue}>{priorityFridgeCount}</Text>
                       <Text style={styles.fridgeStatLabel}>建议优先</Text>
                     </View>
                   </View>
+
+                  {priorityFridgeCount > 0 ? (
+                    <View style={styles.priorityHint}>
+                      <Ionicons name="time-outline" size={16} color="#b56b19" />
+                      <Text style={styles.priorityHintText}>
+                        {pastSuggestedCount > 0
+                          ? `${pastSuggestedCount} 个超过建议食用时间，${useSoonCount} 个建议尽快安排`
+                          : `${useSoonCount} 个建议尽快安排`}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.priorityHint}>
+                      <Ionicons name="checkmark-circle-outline" size={16} color="#3f7958" />
+                      <Text style={styles.priorityHintText}>目前没有需要优先安排的食材</Text>
+                    </View>
+                  )}
 
                   <View style={styles.fridgePreview}>
                     {fridgePreview.map((item) => (
@@ -325,8 +343,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
   },
+  priorityStat: { backgroundColor: '#fff5df', borderColor: '#ecd69c' },
   fridgeStatValue: { color: '#315442', fontSize: 19, fontWeight: '900' },
   fridgeStatLabel: { color: '#6d7b70', fontSize: 12, fontWeight: '800', marginTop: 3 },
+  priorityHint: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  priorityHintText: { color: '#6c625b', flex: 1, fontSize: 12, fontWeight: '800', lineHeight: 17 },
   fridgePreview: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18 },
   ingredientPill: { backgroundColor: '#ffffff', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 },
   ingredientPillText: { color: '#315442', fontSize: 13, fontWeight: '800' },

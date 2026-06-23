@@ -4,35 +4,36 @@ import { StyleSheet, Text, View } from 'react-native'
 import type { FridgeInventoryItem } from '@/types/fridge'
 
 export function InventorySummary({ items }: { items: FridgeInventoryItem[] }) {
+  const comfortableCount = items.filter((item) => item.timing.status === 'comfortable').length
   const useSoonCount = items.filter((item) => item.timing.status === 'use_soon').length
   const pastSuggestedCount = items.filter((item) => item.timing.status === 'past_suggested').length
   const unknownCount = items.filter((item) => item.timing.status === 'unknown').length
 
   return (
     <View style={styles.container}>
-      <View style={styles.summaryItem}>
-        <Ionicons name="cube-outline" size={18} color="#3f7958" />
+      <View style={[styles.summaryItem, styles.normalItem]}>
+        <Ionicons name="checkmark-circle-outline" size={19} color="#3f7958" />
         <View>
-          <Text style={styles.value}>{items.length}</Text>
-          <Text style={styles.label}>当前食材</Text>
+          <Text style={styles.value}>{comfortableCount}</Text>
+          <Text style={styles.label}>状态正常</Text>
         </View>
       </View>
-      <View style={styles.summaryItem}>
-        <Ionicons name="time-outline" size={18} color="#b56b19" />
+      <View style={[styles.summaryItem, styles.soonItem]}>
+        <Ionicons name="time-outline" size={19} color="#b56b19" />
         <View>
           <Text style={styles.value}>{useSoonCount}</Text>
-          <Text style={styles.label}>建议优先</Text>
+          <Text style={styles.label}>建议优先安排</Text>
         </View>
       </View>
-      <View style={styles.summaryItem}>
-        <Ionicons name="alert-circle-outline" size={18} color="#a33a2d" />
+      <View style={[styles.summaryItem, styles.pastItem]}>
+        <Ionicons name="alert-circle-outline" size={19} color="#a33a2d" />
         <View>
           <Text style={styles.value}>{pastSuggestedCount}</Text>
           <Text style={styles.label}>超过建议</Text>
         </View>
       </View>
-      <View style={styles.summaryItem}>
-        <Ionicons name="create-outline" size={18} color="#766b63" />
+      <View style={[styles.summaryItem, styles.unknownItem]}>
+        <Ionicons name="create-outline" size={19} color="#766b63" />
         <View>
           <Text style={styles.value}>{unknownCount}</Text>
           <Text style={styles.label}>待补充</Text>
@@ -57,7 +58,6 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     alignItems: 'center',
-    backgroundColor: '#faf6f2',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
@@ -65,6 +65,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     width: '48%',
   },
+  normalItem: { backgroundColor: '#edf6f0' },
+  soonItem: { backgroundColor: '#fff5df' },
+  pastItem: { backgroundColor: '#fff0ed' },
+  unknownItem: { backgroundColor: '#f4f0eb' },
   value: { color: '#332e29', fontSize: 17, fontWeight: '900' },
   label: { color: '#766b63', fontSize: 11, fontWeight: '800', marginTop: 1 },
 })
