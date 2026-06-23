@@ -425,7 +425,7 @@ function buildInventoryTiming(
       daysUntilSuggestedUseBy: daysRemaining,
       status: 'past_suggested',
       label: '超过建议食用时间',
-      helperText: '这只是保存建议，不代表食品一定安全或已经变质。',
+      helperText: '这只是保存建议，实际处理前仍需结合外观、气味和包装日期判断。',
     }
   }
 
