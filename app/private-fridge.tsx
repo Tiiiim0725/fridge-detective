@@ -118,7 +118,7 @@ export default function PrivateFridgeScreen() {
             <View style={styles.safetyNote}>
               <Ionicons name="information-circle-outline" size={18} color="#7d726a" />
               <Text style={styles.safetyNoteText}>
-                建议食用时间只用于安排做饭顺序，不代表食品一定安全或已经变质。
+                建议食用时间只用于安排做饭顺序，实际处理前仍需结合外观、气味和包装日期判断。
               </Text>
             </View>
 
