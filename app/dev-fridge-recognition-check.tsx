@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import { type Href, useRouter } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { useMemo, useState } from 'react'
 import {
@@ -13,6 +14,7 @@ import {
   View,
 } from 'react-native'
 
+import { getConversationalRecipeRecommendations } from '@/services/conversationalRecommendationService'
 import { runFridgeRecognition } from '@/services/fridgeRecognitionService'
 import {
   confirmFridgeScanItems,
@@ -35,12 +37,14 @@ import {
   type FridgeQuantityKind,
   type FridgeScanItem,
 } from '@/types/fridge'
+import type { ConversationalRecipeRecommendationResult } from '@/types/conversationalRecommendation'
 import type { PantryItemKey } from '@/types/profile'
 
 type LocalPhotoStatus = 'local' | 'uploading' | 'recognizing' | 'done' | 'error'
 type FlowStatus = 'idle' | 'recognizing' | 'ready' | 'confirming' | 'success' | 'error'
 type PhotoSource = 'camera' | 'url'
 type IoniconName = keyof typeof Ionicons.glyphMap
+type ConversationalRecommendStatus = 'idle' | 'loading' | 'success' | 'fallback' | 'empty' | 'error'
 
 export type FridgeRecognitionFlowMode = 'formal' | 'dev'
 
@@ -231,6 +235,7 @@ export function FridgeRecognitionFlow({
   onContinue,
   showDebug = false,
 }: FridgeRecognitionFlowProps) {
+  const router = useRouter()
   const [photos, setPhotos] = useState<LocalPhoto[]>([])
   const [flowStatus, setFlowStatus] = useState<FlowStatus>('idle')
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null)
@@ -251,6 +256,10 @@ export function FridgeRecognitionFlow({
   const [manualName, setManualName] = useState('')
   const [manualQuantityText, setManualQuantityText] = useState('')
   const [manualAdding, setManualAdding] = useState(false)
+  const [recommendPrompt, setRecommendPrompt] = useState('')
+  const [recommendStatus, setRecommendStatus] = useState<ConversationalRecommendStatus>('idle')
+  const [recommendResult, setRecommendResult] = useState<ConversationalRecipeRecommendationResult | null>(null)
+  const [recommendErrorMessage, setRecommendErrorMessage] = useState<string | null>(null)
 
   const selectedPhotos = useMemo(
     () => photos.filter((photo) => photo.selected),
@@ -639,6 +648,43 @@ export function FridgeRecognitionFlow({
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
       setFlowStatus('ready')
+    }
+  }
+
+  async function runConversationalRecommendations() {
+    const message = recommendPrompt.trim()
+
+    if (!message) {
+      setRecommendStatus('empty')
+      setRecommendResult(null)
+      setRecommendErrorMessage('先告诉我你现在想吃什么，比如“想吃清淡一点，半小时内能做”。')
+      return
+    }
+
+    setRecommendStatus('loading')
+    setRecommendResult(null)
+    setRecommendErrorMessage(null)
+
+    try {
+      const result = await getConversationalRecipeRecommendations({
+        message,
+        conversationId: scanId ? `fridge-scan-${scanId}` : 'fridge-scan',
+        limit: 5,
+      })
+
+      setRecommendResult(result)
+      setRecommendErrorMessage(result.warningMessage)
+
+      if (result.recommendations.length === 0) {
+        setRecommendStatus('empty')
+      } else if (result.fallbackUsed) {
+        setRecommendStatus('fallback')
+      } else {
+        setRecommendStatus('success')
+      }
+    } catch (error) {
+      setRecommendStatus('error')
+      setRecommendErrorMessage(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -1053,6 +1099,103 @@ export function FridgeRecognitionFlow({
             </View>
           </View>
         ) : null}
+
+        <View style={styles.conversationPanel}>
+          <View style={styles.conversationHeader}>
+            <View style={styles.conversationIcon}>
+              <Ionicons name="sparkles-outline" size={21} color="#fff8f1" />
+            </View>
+            <View style={styles.conversationCopy}>
+              <Text style={styles.conversationTitle}>想吃什么</Text>
+              <Text style={styles.conversationText}>
+                说一句现在的胃口，我会结合你的冰箱、偏好和菜品库重新挑几道。
+              </Text>
+            </View>
+          </View>
+
+          <TextInput
+            value={recommendPrompt}
+            onChangeText={setRecommendPrompt}
+            editable={recommendStatus !== 'loading'}
+            multiline
+            placeholder="比如：想吃清淡一点，半小时内能做，不要鸡蛋"
+            placeholderTextColor="#9c9087"
+            style={styles.conversationInput}
+          />
+
+          <Pressable
+            disabled={recommendStatus === 'loading'}
+            onPress={runConversationalRecommendations}
+            style={({ pressed }) => [
+              styles.conversationButton,
+              pressed && recommendStatus !== 'loading' && styles.conversationButtonPressed,
+              recommendStatus === 'loading' && styles.disabledButton,
+            ]}
+          >
+            {recommendStatus === 'loading' ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <Ionicons name="restaurant-outline" size={18} color="#ffffff" />
+            )}
+            <Text style={styles.conversationButtonText}>
+              {recommendStatus === 'loading' ? '正在重新推荐' : '按这句话推荐'}
+            </Text>
+          </Pressable>
+
+          {recommendErrorMessage ? (
+            <View style={styles.conversationNotice}>
+              <Ionicons
+                name={recommendStatus === 'error' ? 'alert-circle-outline' : 'information-circle-outline'}
+                size={17}
+                color={recommendStatus === 'error' ? '#a33a2d' : '#8f4b25'}
+              />
+              <Text style={[
+                styles.conversationNoticeText,
+                recommendStatus === 'error' && styles.conversationNoticeErrorText,
+              ]}>
+                {recommendErrorMessage}
+              </Text>
+            </View>
+          ) : null}
+
+          {recommendResult?.intentSummary ? (
+            <Text style={styles.intentSummary}>
+              我理解的是：{recommendResult.intentSummary}
+            </Text>
+          ) : null}
+
+          {recommendResult && recommendResult.recommendations.length > 0 ? (
+            <View style={styles.conversationRecipeList}>
+              {recommendResult.recommendations.map((item) => (
+                <Pressable
+                  key={item.recipe.recipeKey}
+                  onPress={() => router.push(`/recipe/${item.recipe.recipeKey}` as Href)}
+                  style={({ pressed }) => [
+                    styles.conversationRecipeCard,
+                    pressed && styles.conversationRecipeCardPressed,
+                  ]}
+                >
+                  <View style={styles.conversationRecipeMain}>
+                    <Text style={styles.conversationRecipeName}>{item.recipe.zhName}</Text>
+                    <Text style={styles.conversationRecipeMeta}>
+                      约 {item.recipe.totalTimeMinutes} 分钟 · {Math.round(item.score)} 分
+                    </Text>
+                    <Text style={styles.conversationRecipeReason} numberOfLines={2}>
+                      {item.aiReason ?? item.reasons[0] ?? '根据你的冰箱和偏好推荐。'}
+                    </Text>
+                  </View>
+                  <View style={styles.conversationRecipeArrow}>
+                    <Ionicons name="chevron-forward" size={18} color="#8f4b25" />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {recommendStatus === 'fallback' ? (
+            <Text style={styles.fallbackText}>AI 暂时没有接管排序，已先用常规推荐结果兜底。</Text>
+          ) : null}
+        </View>
 
         {showDebug ? (
           <View style={styles.debugPanel}>
@@ -1835,6 +1978,153 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     lineHeight: 19,
+  },
+  conversationPanel: {
+    borderColor: '#e1d7ce',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 14,
+    marginHorizontal: 22,
+    padding: 18,
+    backgroundColor: '#fffdf8',
+    shadowColor: '#33251d',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  conversationHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  conversationIcon: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+    backgroundColor: '#c2652a',
+  },
+  conversationCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  conversationTitle: {
+    color: '#332e29',
+    fontSize: 21,
+    fontWeight: '900',
+  },
+  conversationText: {
+    color: '#746b63',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  conversationInput: {
+    borderColor: '#ded5cc',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#302a25',
+    fontSize: 15,
+    lineHeight: 21,
+    minHeight: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    textAlignVertical: 'top',
+    backgroundColor: '#ffffff',
+  },
+  conversationButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: 18,
+    backgroundColor: '#1f5945',
+  },
+  conversationButtonPressed: {
+    backgroundColor: '#184635',
+    transform: [{ scale: 0.99 }],
+  },
+  conversationButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  conversationNotice: {
+    alignItems: 'center',
+    borderColor: '#efd9c4',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 10,
+    backgroundColor: '#fff5ea',
+  },
+  conversationNoticeText: {
+    color: '#8f4b25',
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  conversationNoticeErrorText: {
+    color: '#a33a2d',
+  },
+  intentSummary: {
+    color: '#4f4741',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 19,
+  },
+  conversationRecipeList: {
+    gap: 10,
+  },
+  conversationRecipeCard: {
+    alignItems: 'center',
+    borderColor: '#e5dbd0',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 13,
+    backgroundColor: '#ffffff',
+  },
+  conversationRecipeCardPressed: {
+    backgroundColor: '#fff6ed',
+    transform: [{ scale: 0.99 }],
+  },
+  conversationRecipeMain: {
+    flex: 1,
+    gap: 4,
+  },
+  conversationRecipeName: {
+    color: '#2f2a25',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  conversationRecipeMeta: {
+    color: '#8b7b6c',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  conversationRecipeReason: {
+    color: '#5f564f',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  conversationRecipeArrow: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+    backgroundColor: '#fff1e6',
+  },
+  fallbackText: {
+    color: '#7a6658',
+    fontSize: 12,
+    lineHeight: 17,
   },
   debugPanel: {
     borderColor: '#e1d8cf',
