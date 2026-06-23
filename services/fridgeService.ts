@@ -16,6 +16,11 @@ import type {
   FridgeItem,
   FridgeItemSource,
   FridgeItemStatus,
+  FridgeStorageLocation,
+  FridgeExpirySource,
+  FridgeInventoryItem,
+  FridgeInventoryTiming,
+  IngredientStorageGuideline,
   FridgePhotoRecognitionStatus,
   FridgePhotoZoneKey,
   FridgeQuantityKind,
@@ -29,6 +34,7 @@ import type {
   ManualFridgeScanItemInput,
   SaveConfirmedFridgeItemInput,
   SaveRecognizedScanItemsInput,
+  UpdateFridgeItemInventoryInput,
 } from '@/types/fridge'
 
 interface FridgeScanRow {
@@ -97,7 +103,23 @@ interface FridgeItemRow {
   quantity_count: number | null
   source: string
   status: string
+  stored_at: string | null
+  opened_at: string | null
+  expires_at: string | null
+  storage_location: string | null
+  expiry_source: string | null
   last_seen_at: string
+  created_at: string
+  updated_at: string
+}
+
+interface IngredientStorageGuidelineRow {
+  id: string
+  ingredient_key: string
+  storage_location: string
+  suggested_days_min: number
+  suggested_days_max: number
+  note: string | null
   created_at: string
   updated_at: string
 }
@@ -118,6 +140,7 @@ interface SaveActiveFridgeItemInput {
   quantityText: string | null
   quantityCount: number | null
   source: FridgeItemSource
+  storageLocation?: FridgeStorageLocation
   lastSeenAt?: string
 }
 
@@ -232,7 +255,25 @@ function mapFridgeItemRow(row: FridgeItemRow): FridgeItem {
     quantityCount: row.quantity_count,
     source: row.source as FridgeItemSource,
     status: row.status as FridgeItemStatus,
+    storedAt: row.stored_at ?? null,
+    openedAt: row.opened_at ?? null,
+    expiresAt: row.expires_at ?? null,
+    storageLocation: (row.storage_location ?? 'fridge') as FridgeStorageLocation,
+    expirySource: (row.expiry_source ?? 'unknown') as FridgeExpirySource,
     lastSeenAt: row.last_seen_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function mapIngredientStorageGuidelineRow(row: IngredientStorageGuidelineRow): IngredientStorageGuideline {
+  return {
+    id: row.id,
+    ingredientKey: row.ingredient_key,
+    storageLocation: row.storage_location as FridgeStorageLocation,
+    suggestedDaysMin: row.suggested_days_min,
+    suggestedDaysMax: row.suggested_days_max,
+    note: row.note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -297,6 +338,139 @@ function normalizeOptionalIngredientKey(value?: string | null): string | null {
   return normalizeOptionalId(value)
 }
 
+function normalizeOptionalDateTime(value?: string | null): string | null | undefined {
+  if (typeof value === 'undefined') {
+    return undefined
+  }
+
+  if (value === null) {
+    return null
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('Invalid date value.')
+  }
+
+  return date.toISOString()
+}
+
+function normalizeOptionalDate(value?: string | null): string | null | undefined {
+  if (typeof value === 'undefined') {
+    return undefined
+  }
+
+  if (value === null) {
+    return null
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('Invalid date value.')
+  }
+
+  return date.toISOString().slice(0, 10)
+}
+
+function addDaysAsDateString(value: string, days: number): string | null {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+function daysUntilDate(value: string): number | null {
+  const target = new Date(`${value}T00:00:00`)
+
+  if (Number.isNaN(target.getTime())) {
+    return null
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.ceil((target.getTime() - today.getTime()) / 86400000)
+}
+
+function buildInventoryTiming(
+  item: FridgeItem,
+  guideline: IngredientStorageGuideline | null
+): FridgeInventoryTiming {
+  const suggestedUseBy = item.expiresAt
+    ?? (
+      guideline && item.storedAt
+        ? addDaysAsDateString(item.storedAt, guideline.suggestedDaysMax)
+        : null
+    )
+  const daysRemaining = suggestedUseBy ? daysUntilDate(suggestedUseBy) : null
+
+  if (!suggestedUseBy || daysRemaining === null) {
+    return {
+      suggestedUseBy: null,
+      daysUntilSuggestedUseBy: null,
+      status: 'unknown',
+      label: '建议食用时间待补充',
+      helperText: '补充存放时间后，可以给出更具体的食用建议。',
+    }
+  }
+
+  if (daysRemaining < 0) {
+    return {
+      suggestedUseBy,
+      daysUntilSuggestedUseBy: daysRemaining,
+      status: 'past_suggested',
+      label: '超过建议食用时间',
+      helperText: '这只是保存建议，不代表食品一定安全或已经变质。',
+    }
+  }
+
+  if (daysRemaining <= 2) {
+    return {
+      suggestedUseBy,
+      daysUntilSuggestedUseBy: daysRemaining,
+      status: 'use_soon',
+      label: daysRemaining === 0 ? '建议今天食用' : `建议 ${daysRemaining} 天内食用`,
+      helperText: '优先安排进这几天的菜谱会更稳妥。',
+    }
+  }
+
+  return {
+    suggestedUseBy,
+    daysUntilSuggestedUseBy: daysRemaining,
+    status: 'comfortable',
+    label: `建议 ${suggestedUseBy} 前食用`,
+    helperText: '建议时间仅供安排做饭顺序参考。',
+  }
+}
+
+function guidelineKey(ingredientKey: string, storageLocation: FridgeStorageLocation): string {
+  return `${ingredientKey}::${storageLocation}`
+}
+
+function inventorySortWeight(item: FridgeInventoryItem): number {
+  if (item.timing.status === 'past_suggested') return 0
+  if (item.timing.status === 'use_soon') return 1
+  if (item.timing.status === 'comfortable') return 2
+  return 3
+}
+
+function sortInventoryItems(items: FridgeInventoryItem[]): FridgeInventoryItem[] {
+  return [...items].sort((left, right) => {
+    const statusDiff = inventorySortWeight(left) - inventorySortWeight(right)
+
+    if (statusDiff !== 0) {
+      return statusDiff
+    }
+
+    return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+  })
+}
+
 async function ensureScanBelongsToUser(scanId: string, userId: string): Promise<void> {
   const { data, error } = await supabase
     .from('fridge_scans')
@@ -335,6 +509,7 @@ async function ensurePhotoBelongsToUser(photoId: string, scanId: string, userId:
 async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<FridgeItem> {
   const lastSeenAt = input.lastSeenAt ?? new Date().toISOString()
   const ingredientKey = normalizeOptionalIngredientKey(input.ingredientKey)
+  const storageLocation = input.storageLocation ?? 'fridge'
 
   if (await isPantryIngredientKey(ingredientKey)) {
     throw new Error('Pantry items should be saved to pantry_items, not fridge_items.')
@@ -350,6 +525,8 @@ async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<F
     quantity_count: input.quantityCount,
     source: input.source,
     status: 'active',
+    storage_location: storageLocation,
+    expiry_source: 'system_suggested',
     last_seen_at: lastSeenAt,
   }
 
@@ -367,10 +544,18 @@ async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<F
     }
 
     if (existing) {
+      const existingRow = existing as FridgeItemRow
       const { data: updated, error: updateError } = await supabase
         .from('fridge_items')
-        .update(payload)
-        .eq('id', (existing as FridgeItemRow).id)
+        .update({
+          ...payload,
+          stored_at: existingRow.stored_at ?? lastSeenAt,
+          opened_at: existingRow.opened_at,
+          expires_at: existingRow.expires_at,
+          storage_location: existingRow.storage_location ?? storageLocation,
+          expiry_source: existingRow.expiry_source ?? 'system_suggested',
+        })
+        .eq('id', existingRow.id)
         .eq('user_id', input.userId)
         .select()
         .single()
@@ -385,7 +570,12 @@ async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<F
 
   const { data: inserted, error: insertError } = await supabase
     .from('fridge_items')
-    .insert(payload)
+    .insert({
+      ...payload,
+      stored_at: lastSeenAt,
+      opened_at: null,
+      expires_at: null,
+    })
     .select()
     .single()
 
@@ -714,6 +904,102 @@ export async function getCurrentFridgeItems(): Promise<FridgeItem[]> {
   }
 
   return (data ?? []).map((row) => mapFridgeItemRow(row as FridgeItemRow))
+}
+
+export async function getFridgeInventoryItems(): Promise<FridgeInventoryItem[]> {
+  const items = await getCurrentFridgeItems()
+  const ingredientKeys = Array.from(new Set(items
+    .map((item) => item.ingredientKey)
+    .filter((ingredientKey): ingredientKey is string => Boolean(ingredientKey))))
+
+  let guidelines: IngredientStorageGuideline[] = []
+
+  if (ingredientKeys.length > 0) {
+    const { data, error } = await supabase
+      .from('ingredient_storage_guidelines')
+      .select('*')
+      .in('ingredient_key', ingredientKeys)
+
+    if (error) {
+      throw toServiceError(error, 'Failed to query ingredient storage guidelines')
+    }
+
+    guidelines = (data ?? []).map((row) => mapIngredientStorageGuidelineRow(row as IngredientStorageGuidelineRow))
+  }
+
+  const guidelineByKey = new Map(guidelines.map((guideline) => [
+    guidelineKey(guideline.ingredientKey, guideline.storageLocation),
+    guideline,
+  ]))
+
+  return sortInventoryItems(items.map((item) => {
+    const guideline = item.ingredientKey
+      ? guidelineByKey.get(guidelineKey(item.ingredientKey, item.storageLocation)) ?? null
+      : null
+
+    return {
+      ...item,
+      guideline,
+      timing: buildInventoryTiming(item, guideline),
+    }
+  }))
+}
+
+export async function updateFridgeItemInventory(
+  input: UpdateFridgeItemInventoryInput
+): Promise<FridgeInventoryItem> {
+  const authUser = await ensureAuthUser()
+  const payload: Record<string, string | null> = {}
+  const storedAt = normalizeOptionalDateTime(input.storedAt)
+  const openedAt = normalizeOptionalDateTime(input.openedAt)
+  const expiresAt = normalizeOptionalDate(input.expiresAt)
+
+  if (typeof storedAt !== 'undefined') payload.stored_at = storedAt
+  if (typeof openedAt !== 'undefined') payload.opened_at = openedAt
+  if (typeof expiresAt !== 'undefined') payload.expires_at = expiresAt
+  if (input.storageLocation) payload.storage_location = input.storageLocation
+  if (input.expirySource) payload.expiry_source = input.expirySource
+
+  if (Object.keys(payload).length === 0) {
+    const items = await getFridgeInventoryItems()
+    const item = items.find((candidate) => candidate.id === input.itemId)
+
+    if (!item) {
+      throw new Error('Fridge item not found or not accessible.')
+    }
+
+    return item
+  }
+
+  const { data, error } = await supabase
+    .from('fridge_items')
+    .update(payload)
+    .eq('id', input.itemId)
+    .eq('user_id', authUser.userId)
+    .eq('status', 'active')
+    .select()
+    .maybeSingle()
+
+  if (error) {
+    throw toServiceError(error, 'Failed to update fridge item inventory')
+  }
+
+  if (!data) {
+    throw new Error('Fridge item not found or not accessible.')
+  }
+
+  const [inventoryItem] = await getFridgeInventoryItems()
+    .then((items) => items.filter((item) => item.id === input.itemId))
+
+  if (!inventoryItem) {
+    return {
+      ...mapFridgeItemRow(data as FridgeItemRow),
+      guideline: null,
+      timing: buildInventoryTiming(mapFridgeItemRow(data as FridgeItemRow), null),
+    }
+  }
+
+  return inventoryItem
 }
 
 export async function removeFridgeItem(itemId: string): Promise<void> {

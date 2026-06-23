@@ -11,18 +11,18 @@ import {
   View,
 } from 'react-native'
 
-import { getCurrentFridgeItems } from '@/services/fridgeService'
+import { getFridgeInventoryItems } from '@/services/fridgeService'
 import { getOnboardingContext } from '@/services/profileService'
+import type { FridgeInventoryItem } from '@/types/fridge'
 import {
   COOK_TIME_PREFERENCE_OPTIONS,
   COOKING_SKILL_OPTIONS,
   type OnboardingContext,
 } from '@/types/profile'
-import type { FridgeItem } from '@/types/fridge'
 
 type DashboardData = {
   context: OnboardingContext
-  fridgeItems: FridgeItem[]
+  fridgeItems: FridgeInventoryItem[]
 }
 
 function cookTimeLabel(context: OnboardingContext): string {
@@ -45,6 +45,7 @@ export default function MeScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true
+      void reloadKey
 
       async function loadDashboard() {
         setLoading(true)
@@ -53,7 +54,7 @@ export default function MeScreen() {
         try {
           const [context, fridgeItems] = await Promise.all([
             getOnboardingContext(),
-            getCurrentFridgeItems(),
+            getFridgeInventoryItems(),
           ])
 
           if (active) {
@@ -83,6 +84,9 @@ export default function MeScreen() {
   const displayName = data?.context.profile.displayName?.trim() || '厨房新朋友'
   const initial = displayName.slice(0, 1)
   const fridgePreview = data?.fridgeItems.slice(0, 4) ?? []
+  const priorityFridgeCount = data?.fridgeItems.filter((item) => (
+    item.timing.status === 'use_soon' || item.timing.status === 'past_suggested'
+  )).length ?? 0
 
   return (
     <View style={styles.screen}>
@@ -169,7 +173,7 @@ export default function MeScreen() {
                   <Text style={styles.cardTitle}>私人冰箱</Text>
                   <Text style={styles.cardSubtitle}>
                     {data.fridgeItems.length > 0
-                      ? `目前记录了 ${data.fridgeItems.length} 个食材`
+                      ? `目前记录了 ${data.fridgeItems.length} 个食材，${priorityFridgeCount} 个建议优先安排`
                       : '冰箱里还没有确认过的食材'}
                   </Text>
                 </View>
@@ -177,16 +181,29 @@ export default function MeScreen() {
               </View>
 
               {fridgePreview.length > 0 ? (
-                <View style={styles.fridgePreview}>
-                  {fridgePreview.map((item) => (
-                    <View key={item.id} style={styles.ingredientPill}>
-                      <Text style={styles.ingredientPillText}>{item.displayName}</Text>
+                <>
+                  <View style={styles.fridgeStats}>
+                    <View style={styles.fridgeStat}>
+                      <Text style={styles.fridgeStatValue}>{data.fridgeItems.length}</Text>
+                      <Text style={styles.fridgeStatLabel}>当前食材</Text>
                     </View>
-                  ))}
-                  {data.fridgeItems.length > fridgePreview.length ? (
-                    <Text style={styles.moreText}>+{data.fridgeItems.length - fridgePreview.length}</Text>
-                  ) : null}
-                </View>
+                    <View style={styles.fridgeStat}>
+                      <Text style={styles.fridgeStatValue}>{priorityFridgeCount}</Text>
+                      <Text style={styles.fridgeStatLabel}>建议优先</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.fridgePreview}>
+                    {fridgePreview.map((item) => (
+                      <View key={item.id} style={styles.ingredientPill}>
+                        <Text style={styles.ingredientPillText}>{item.displayName}</Text>
+                      </View>
+                    ))}
+                    {data.fridgeItems.length > fridgePreview.length ? (
+                      <Text style={styles.moreText}>+{data.fridgeItems.length - fridgePreview.length}</Text>
+                    ) : null}
+                  </View>
+                </>
               ) : (
                 <Pressable
                   onPress={(event) => {
@@ -299,6 +316,17 @@ const styles = StyleSheet.create({
   },
   statLabel: { color: '#8a7f76', fontSize: 12, marginBottom: 5 },
   statValue: { color: '#3b342f', fontSize: 15, fontWeight: '900' },
+  fridgeStats: { flexDirection: 'row', gap: 10, marginTop: 18 },
+  fridgeStat: {
+    backgroundColor: '#ffffff',
+    borderColor: '#dfe8e2',
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    padding: 12,
+  },
+  fridgeStatValue: { color: '#315442', fontSize: 19, fontWeight: '900' },
+  fridgeStatLabel: { color: '#6d7b70', fontSize: 12, fontWeight: '800', marginTop: 3 },
   fridgePreview: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18 },
   ingredientPill: { backgroundColor: '#ffffff', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 },
   ingredientPillText: { color: '#315442', fontSize: 13, fontWeight: '800' },

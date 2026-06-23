@@ -11,34 +11,13 @@ import {
   View,
 } from 'react-native'
 
-import { getCurrentFridgeItems } from '@/services/fridgeService'
-import type { FridgeItem } from '@/types/fridge'
-
-function quantityLabel(item: FridgeItem): string {
-  if (item.quantityKind === 'count' && typeof item.quantityCount === 'number') {
-    return `${item.quantityCount} 个`
-  }
-
-  if (item.quantityKind === 'text' && item.quantityText) {
-    return item.quantityText
-  }
-
-  return '数量未记录'
-}
-
-function lastSeenLabel(value: string): string {
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return '最近确认过'
-  }
-
-  return `${date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })} 确认`
-}
+import { FridgeInventoryCard, InventorySummary } from '@/components/fridge-inventory'
+import { getFridgeInventoryItems } from '@/services/fridgeService'
+import type { FridgeInventoryItem } from '@/types/fridge'
 
 export default function PrivateFridgeScreen() {
   const router = useRouter()
-  const [items, setItems] = useState<FridgeItem[]>([])
+  const [items, setItems] = useState<FridgeInventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -46,13 +25,14 @@ export default function PrivateFridgeScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true
+      void reloadKey
 
       async function loadItems() {
         setLoading(true)
         setErrorMessage(null)
 
         try {
-          const currentItems = await getCurrentFridgeItems()
+          const currentItems = await getFridgeInventoryItems()
           if (active) {
             setItems(currentItems.filter((item) => item.ingredientKey !== null))
           }
@@ -86,7 +66,7 @@ export default function PrivateFridgeScreen() {
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>我的冰箱</Text>
           <Text style={styles.title}>现在冰箱里有什么</Text>
-          <Text style={styles.subtitle}>这里只展示你已经确认过、目前仍在库存中的食材。</Text>
+          <Text style={styles.subtitle}>按最近确认时间和公共保存建议，帮你安排优先吃什么。</Text>
         </View>
 
         {loading ? (
@@ -122,22 +102,24 @@ export default function PrivateFridgeScreen() {
 
         {!loading && !errorMessage && items.length > 0 ? (
           <>
+            <InventorySummary items={items} />
+
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryTitle}>当前食材</Text>
-              <Text style={styles.summaryCount}>{items.length} 项</Text>
+              <Text style={styles.summaryTitle}>食材库存</Text>
+              <Text style={styles.summaryCount}>建议食用时间</Text>
             </View>
 
             <View style={styles.grid}>
               {items.map((item) => (
-                <View key={item.id} style={styles.itemCard}>
-                  <View style={styles.itemIcon}>
-                    <Ionicons name="leaf-outline" size={23} color="#ffffff" />
-                  </View>
-                  <Text style={styles.itemName} numberOfLines={2}>{item.displayName}</Text>
-                  <Text style={styles.itemQuantity}>{quantityLabel(item)}</Text>
-                  <Text style={styles.itemSeen}>{lastSeenLabel(item.lastSeenAt)}</Text>
-                </View>
+                <FridgeInventoryCard key={item.id} item={item} />
               ))}
+            </View>
+
+            <View style={styles.safetyNote}>
+              <Ionicons name="information-circle-outline" size={18} color="#7d726a" />
+              <Text style={styles.safetyNoteText}>
+                建议食用时间只用于安排做饭顺序，不代表食品一定安全或已经变质。
+              </Text>
             </View>
 
             <Pressable style={styles.updateButton} onPress={() => router.push('/fridge-scan' as Href)}>
@@ -223,27 +205,14 @@ const styles = StyleSheet.create({
   summaryTitle: { color: '#332e29', fontSize: 20, fontWeight: '900' },
   summaryCount: { color: '#3f7958', fontSize: 14, fontWeight: '900' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 22 },
-  itemCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e3ddd6',
-    borderRadius: 20,
-    borderWidth: 1,
-    minHeight: 164,
-    padding: 16,
-    width: '48%',
+  safetyNote: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 8,
+    marginHorizontal: 22,
+    marginTop: 18,
   },
-  itemIcon: {
-    alignItems: 'center',
-    backgroundColor: '#db7b42',
-    borderRadius: 22,
-    height: 44,
-    justifyContent: 'center',
-    marginBottom: 16,
-    width: 44,
-  },
-  itemName: { color: '#332e29', fontSize: 18, fontWeight: '900', lineHeight: 23 },
-  itemQuantity: { color: '#766b63', fontSize: 14, marginTop: 6 },
-  itemSeen: { color: '#3f7958', fontSize: 12, fontWeight: '800', marginTop: 8 },
+  safetyNoteText: { color: '#766b63', flex: 1, fontSize: 12, lineHeight: 18 },
   updateButton: {
     alignItems: 'center',
     backgroundColor: '#c2652a',
