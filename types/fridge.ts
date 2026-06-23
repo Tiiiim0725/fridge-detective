@@ -43,6 +43,16 @@ export type FridgeItemSource = 'scan_confirmed' | 'manual' | 'mock'
 
 export type FridgeItemStatus = 'active' | 'removed'
 
+export type FridgeStorageLocation = 'fridge' | 'freezer' | 'pantry' | 'room_temp'
+
+export type FridgeExpirySource = 'system_suggested' | 'user_override' | 'unknown'
+
+export type FridgeInventoryTimingStatus =
+  | 'unknown'
+  | 'comfortable'
+  | 'use_soon'
+  | 'past_suggested'
+
 export interface FridgeScan {
   id: string
   userId: string
@@ -109,9 +119,38 @@ export interface FridgeItem {
   quantityCount: number | null
   source: FridgeItemSource
   status: FridgeItemStatus
+  storedAt: string | null
+  openedAt: string | null
+  expiresAt: string | null
+  storageLocation: FridgeStorageLocation
+  expirySource: FridgeExpirySource
   lastSeenAt: string
   createdAt: string
   updatedAt: string
+}
+
+export interface IngredientStorageGuideline {
+  id: string
+  ingredientKey: string
+  storageLocation: FridgeStorageLocation
+  suggestedDaysMin: number
+  suggestedDaysMax: number
+  note: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FridgeInventoryTiming {
+  suggestedUseBy: string | null
+  daysUntilSuggestedUseBy: number | null
+  status: FridgeInventoryTimingStatus
+  label: string
+  helperText: string
+}
+
+export interface FridgeInventoryItem extends FridgeItem {
+  guideline: IngredientStorageGuideline | null
+  timing: FridgeInventoryTiming
 }
 
 export interface CreateFridgeScanInput {
@@ -171,6 +210,15 @@ export interface SaveConfirmedFridgeItemInput {
   quantityText?: string | null
   quantityCount?: number | null
   source?: FridgeItemSource
+}
+
+export interface UpdateFridgeItemInventoryInput {
+  itemId: string
+  storedAt?: string | null
+  openedAt?: string | null
+  expiresAt?: string | null
+  storageLocation?: FridgeStorageLocation
+  expirySource?: FridgeExpirySource
 }
 
 export type FridgePhotoGuideStep = {
