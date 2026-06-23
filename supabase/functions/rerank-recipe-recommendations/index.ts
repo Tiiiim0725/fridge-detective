@@ -87,7 +87,6 @@ const MAX_MESSAGE_LENGTH = 1000
 const MAX_CANDIDATE_COUNT = 20
 const OPENROUTER_TIMEOUT_MS = 15000
 const openRouterErrorSnippetLength = 1000
-const MAX_PARSED_INGREDIENT_KEYS = 12
 
 const systemPrompt = `
 You are Fridge Detective's conversational recipe reranker.
@@ -207,81 +206,57 @@ function parseRequestBody(body: RerankRequestBody): {
   }
 }
 
-function buildJsonSchema(input: ReturnType<typeof parseRequestBody>) {
-  if (!input) {
-    throw new Error('Cannot build schema without parsed input.')
-  }
-
+function buildJsonSchema() {
   return {
     type: 'object',
-    additionalProperties: false,
-    required: ['intentSummary', 'parsedIntent', 'rankedRecipes', 'warningMessage'],
+    required: ['rankedRecipes'],
     properties: {
       intentSummary: {
-        type: ['string', 'null'],
+        type: 'string',
       },
       parsedIntent: {
-        type: ['object', 'null'],
-        additionalProperties: false,
-        required: [
-          'cuisineKeys',
-          'flavorTags',
-          'desiredIngredientKeys',
-          'avoidedIngredientKeys',
-          'maxMinutes',
-          'mood',
-        ],
+        type: 'object',
         properties: {
           cuisineKeys: {
             type: 'array',
             items: {
               type: 'string',
-              enum: input.allowedCuisineKeys,
             },
           },
           flavorTags: {
             type: 'array',
             items: {
               type: 'string',
-              enum: input.allowedFlavorTags,
             },
           },
           desiredIngredientKeys: {
             type: 'array',
-            maxItems: MAX_PARSED_INGREDIENT_KEYS,
             items: {
               type: 'string',
             },
           },
           avoidedIngredientKeys: {
             type: 'array',
-            maxItems: MAX_PARSED_INGREDIENT_KEYS,
             items: {
               type: 'string',
             },
           },
           maxMinutes: {
-            type: ['number', 'null'],
-            minimum: 1,
-            maximum: 240,
+            type: 'number',
           },
           mood: {
-            type: ['string', 'null'],
+            type: 'string',
           },
         },
       },
       rankedRecipes: {
         type: 'array',
-        minItems: 1,
-        maxItems: MAX_CANDIDATE_COUNT,
         items: {
           type: 'object',
-          additionalProperties: false,
           required: ['recipeKey', 'aiReason'],
           properties: {
             recipeKey: {
               type: 'string',
-              enum: input.candidates.map((candidate) => candidate.recipeKey),
             },
             aiReason: {
               type: 'string',
@@ -290,7 +265,7 @@ function buildJsonSchema(input: ReturnType<typeof parseRequestBody>) {
         },
       },
       warningMessage: {
-        type: ['string', 'null'],
+        type: 'string',
       },
     },
   }
@@ -328,6 +303,7 @@ function buildUserPrompt(input: ReturnType<typeof parseRequestBody>): string {
       'Temporary avoided ingredients and maxMinutes should be extracted if clearly stated.',
       'For ingredient intent keys, only use ingredientKeys visible in the candidate list.',
       'Cuisine, flavor, desired ingredients, and mood are soft preferences.',
+      'If a nullable field is unknown, use an empty string or omit optional nested fields.',
       'Keep aiReason short, concrete, and in Chinese.',
     ],
     candidates: buildPromptCandidates(input.candidates),
@@ -351,8 +327,8 @@ function buildOpenRouterPayload(openRouterModel: string, input: ReturnType<typeo
       type: 'json_schema',
       json_schema: {
         name: 'recipe_rerank_result',
-        strict: true,
-        schema: buildJsonSchema(input),
+        strict: false,
+        schema: buildJsonSchema(),
       },
     },
   }
