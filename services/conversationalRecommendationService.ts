@@ -44,6 +44,17 @@ const MAX_MESSAGE_LENGTH = 1000
 const FALLBACK_WARNING = '暂时先按你的冰箱和偏好推荐，稍后可以再试试描述想吃什么。'
 const FILTERED_FALLBACK_WARNING = '已按你的临时要求过滤，暂时使用常规排序。'
 const DETERMINISTIC_FAILED_WARNING = '推荐暂时加载失败，请稍后重试。'
+const AVOID_CUES = [
+  '不想吃',
+  '不要吃',
+  '不要',
+  '别推荐',
+  '别放',
+  '不吃',
+  '避开',
+  '忌口',
+  '去掉',
+]
 
 function unique<T extends string>(values: T[]): T[] {
   return [...new Set(values.filter(Boolean))]
@@ -167,6 +178,10 @@ function buildIngredientKeySet(ingredients: Ingredient[]): Set<string> {
   return new Set(ingredients.map((ingredient) => ingredient.ingredientKey))
 }
 
+function normalizeLookupText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return []
@@ -193,6 +208,123 @@ function normalizeMaxMinutes(value: unknown): number | null {
 
   const minutes = Math.floor(value)
   return minutes > 0 && minutes <= 240 ? minutes : null
+}
+
+function parseLocalMaxMinutes(message: string): number | null {
+  const normalized = normalizeLookupText(message)
+
+  if (!/(以内|内|不超过|别超过|最多|至多|少于|快手|快一点|快点)/.test(message)) {
+    return null
+  }
+
+  if (/半(个)?小时/.test(message)) {
+    return 30
+  }
+
+  const chineseMinuteMap: Array<[RegExp, number]> = [
+    [/十五分钟/, 15],
+    [/十分钟/, 10],
+    [/二十分钟/, 20],
+    [/二十五分钟/, 25],
+    [/三十分钟/, 30],
+    [/四十五分钟/, 45],
+  ]
+  const chineseMatch = chineseMinuteMap.find(([pattern]) => pattern.test(message))
+
+  if (chineseMatch) {
+    return chineseMatch[1]
+  }
+
+  const minuteMatch = normalized.match(/(\d{1,3})\s*(?:分钟|min|mins|minutes)/)
+
+  if (minuteMatch) {
+    return normalizeMaxMinutes(Number(minuteMatch[1]))
+  }
+
+  return null
+}
+
+function messageHasAvoidCue(message: string): boolean {
+  return AVOID_CUES.some((cue) => message.includes(cue))
+}
+
+function parseLocalAvoidedIngredientKeys(message: string, ingredients: Ingredient[]): string[] {
+  if (!messageHasAvoidCue(message)) {
+    return []
+  }
+
+  const normalizedMessage = normalizeLookupText(message)
+  const avoidedKeys: string[] = []
+
+  for (const ingredient of ingredients) {
+    const lookupTexts = [
+      ingredient.ingredientKey,
+      ingredient.zhName,
+      ingredient.enName,
+      ...ingredient.aliases,
+    ]
+      .map(normalizeLookupText)
+      .filter((value) => value.length > 0)
+
+    if (lookupTexts.some((value) => normalizedMessage.includes(value))) {
+      avoidedKeys.push(ingredient.ingredientKey)
+    }
+  }
+
+  return unique(avoidedKeys)
+}
+
+function parseLocalHardIntent(message: string, ingredients: Ingredient[]): ParsedRecipeIntent | null {
+  const avoidedIngredientKeys = parseLocalAvoidedIngredientKeys(message, ingredients)
+  const maxMinutes = parseLocalMaxMinutes(message)
+  const parsedIntent: ParsedRecipeIntent = {}
+
+  if (avoidedIngredientKeys.length > 0) {
+    parsedIntent.avoidedIngredientKeys = avoidedIngredientKeys
+  }
+  if (maxMinutes !== null) {
+    parsedIntent.maxMinutes = maxMinutes
+  }
+
+  return Object.keys(parsedIntent).length > 0 ? parsedIntent : null
+}
+
+function mergeParsedIntents(
+  localIntent: ParsedRecipeIntent | null,
+  aiIntent: ParsedRecipeIntent | null
+): ParsedRecipeIntent | null {
+  if (!localIntent && !aiIntent) {
+    return null
+  }
+
+  const merged: ParsedRecipeIntent = {}
+  const cuisineKeys = unique([
+    ...(localIntent?.cuisineKeys ?? []),
+    ...(aiIntent?.cuisineKeys ?? []),
+  ])
+  const flavorTags = unique([
+    ...(localIntent?.flavorTags ?? []),
+    ...(aiIntent?.flavorTags ?? []),
+  ])
+  const desiredIngredientKeys = unique([
+    ...(localIntent?.desiredIngredientKeys ?? []),
+    ...(aiIntent?.desiredIngredientKeys ?? []),
+  ])
+  const avoidedIngredientKeys = unique([
+    ...(localIntent?.avoidedIngredientKeys ?? []),
+    ...(aiIntent?.avoidedIngredientKeys ?? []),
+  ])
+  const maxMinutes = localIntent?.maxMinutes ?? aiIntent?.maxMinutes ?? null
+  const mood = aiIntent?.mood ?? localIntent?.mood ?? null
+
+  if (cuisineKeys.length > 0) merged.cuisineKeys = cuisineKeys
+  if (flavorTags.length > 0) merged.flavorTags = flavorTags
+  if (desiredIngredientKeys.length > 0) merged.desiredIngredientKeys = desiredIngredientKeys
+  if (avoidedIngredientKeys.length > 0) merged.avoidedIngredientKeys = avoidedIngredientKeys
+  if (maxMinutes !== null) merged.maxMinutes = maxMinutes
+  if (mood !== null) merged.mood = mood
+
+  return Object.keys(merged).length > 0 ? merged : null
 }
 
 function normalizeParsedIntent(
@@ -512,6 +644,7 @@ export async function getConversationalRecipeRecommendations(
 
   const ingredientKeySet = buildIngredientKeySet(ingredients)
   const ingredientKeysByRecipeKey = buildRecipeIngredientKeyMap(candidates)
+  const localHardIntent = parseLocalHardIntent(userMessage, ingredients)
   const candidatePayloads = deterministicRecommendations.map((item) => buildCandidatePayload(
     item,
     ingredientKeysByRecipeKey.get(item.recipe.recipeKey) ?? []
@@ -531,19 +664,37 @@ export async function getConversationalRecipeRecommendations(
     aiResponse = await invokeAiRerank(aiRequest)
   } catch (error) {
     console.error('AI rerank failed; using deterministic fallback', error)
+    const safeFallbackRecommendations = applyTemporaryHardFilters(
+      deterministicRecommendations,
+      localHardIntent,
+      ingredientKeysByRecipeKey
+    )
+
+    if (safeFallbackRecommendations.length === 0) {
+      return emptyResult({
+        userMessage,
+        conversationId,
+        errorCode: 'no_deterministic_candidates',
+        warningMessage: '按你的临时要求筛选后，暂时没有合适推荐。',
+      })
+    }
+
     return deterministicFallbackResult({
-      recommendations: deterministicRecommendations,
+      recommendations: safeFallbackRecommendations,
       userMessage,
       conversationId,
-      parsedIntent: null,
+      parsedIntent: localHardIntent,
       intentSummary: null,
       errorCode: await getFunctionErrorCode(error),
-      warningMessage: FALLBACK_WARNING,
+      warningMessage: localHardIntent ? FILTERED_FALLBACK_WARNING : FALLBACK_WARNING,
       limit: finalLimit,
     })
   }
 
-  const parsedIntent = normalizeParsedIntent(aiResponse.parsedIntent, ingredientKeySet)
+  const parsedIntent = mergeParsedIntents(
+    localHardIntent,
+    normalizeParsedIntent(aiResponse.parsedIntent, ingredientKeySet)
+  )
   const intentSummary = sanitizeIntentSummary(aiResponse.intentSummary)
   const safeRecommendations = applyTemporaryHardFilters(
     deterministicRecommendations,

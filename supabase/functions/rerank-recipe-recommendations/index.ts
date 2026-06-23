@@ -27,6 +27,20 @@ interface CandidatePayload {
   ingredientKeys: string[]
 }
 
+interface PromptCandidatePayload {
+  recipeKey: string
+  zhName: string
+  description: string | null
+  score: number
+  totalTimeMinutes: number
+  difficultyKey: string
+  cuisineKey: string
+  ingredientKeys: string[]
+  matchedCoreIngredients: string[]
+  missingCoreIngredients: string[]
+  matchedPantryItems: string[]
+}
+
 interface RerankRequestBody {
   message?: unknown
   limit?: unknown
@@ -73,6 +87,7 @@ const MAX_MESSAGE_LENGTH = 1000
 const MAX_CANDIDATE_COUNT = 20
 const OPENROUTER_TIMEOUT_MS = 15000
 const openRouterErrorSnippetLength = 1000
+const MAX_PARSED_INGREDIENT_KEYS = 12
 
 const systemPrompt = `
 You are Fridge Detective's conversational recipe reranker.
@@ -233,16 +248,16 @@ function buildJsonSchema(input: ReturnType<typeof parseRequestBody>) {
           },
           desiredIngredientKeys: {
             type: 'array',
+            maxItems: MAX_PARSED_INGREDIENT_KEYS,
             items: {
               type: 'string',
-              enum: input.allowedIngredientKeys,
             },
           },
           avoidedIngredientKeys: {
             type: 'array',
+            maxItems: MAX_PARSED_INGREDIENT_KEYS,
             items: {
               type: 'string',
-              enum: input.allowedIngredientKeys,
             },
           },
           maxMinutes: {
@@ -281,6 +296,22 @@ function buildJsonSchema(input: ReturnType<typeof parseRequestBody>) {
   }
 }
 
+function buildPromptCandidates(candidates: CandidatePayload[]): PromptCandidatePayload[] {
+  return candidates.map((candidate) => ({
+    recipeKey: candidate.recipeKey,
+    zhName: candidate.zhName,
+    description: candidate.description,
+    score: candidate.score,
+    totalTimeMinutes: candidate.totalTimeMinutes,
+    difficultyKey: candidate.difficultyKey,
+    cuisineKey: candidate.cuisineKey,
+    ingredientKeys: candidate.ingredientKeys,
+    matchedCoreIngredients: candidate.matchedCoreIngredients,
+    missingCoreIngredients: candidate.missingCoreIngredients,
+    matchedPantryItems: candidate.matchedPantryItems,
+  }))
+}
+
 function buildUserPrompt(input: ReturnType<typeof parseRequestBody>): string {
   if (!input) {
     throw new Error('Cannot build prompt without parsed input.')
@@ -291,15 +322,15 @@ function buildUserPrompt(input: ReturnType<typeof parseRequestBody>): string {
     userMessage: input.message,
     allowedCuisineKeys: input.allowedCuisineKeys,
     allowedFlavorTags: input.allowedFlavorTags,
-    allowedIngredientKeys: input.allowedIngredientKeys,
     rules: [
       'Only use provided candidate recipeKey values.',
       'Rank as many candidates as possible, ideally all candidates.',
       'Temporary avoided ingredients and maxMinutes should be extracted if clearly stated.',
+      'For ingredient intent keys, only use ingredientKeys visible in the candidate list.',
       'Cuisine, flavor, desired ingredients, and mood are soft preferences.',
       'Keep aiReason short, concrete, and in Chinese.',
     ],
-    candidates: input.candidates,
+    candidates: buildPromptCandidates(input.candidates),
   })
 }
 
@@ -324,6 +355,15 @@ function buildOpenRouterPayload(openRouterModel: string, input: ReturnType<typeo
         schema: buildJsonSchema(input),
       },
     },
+  }
+}
+
+function getRequestDiagnostics(payload: ReturnType<typeof buildOpenRouterPayload>) {
+  const userContent = payload.messages[1]?.content ?? ''
+  return {
+    model: payload.model,
+    payloadBytes: JSON.stringify(payload).length,
+    promptBytes: typeof userContent === 'string' ? userContent.length : 0,
   }
 }
 
@@ -478,15 +518,24 @@ Deno.serve(async (request) => {
   }
 
   try {
+    const openRouterPayload = buildOpenRouterPayload(openRouterModel, parsedBody)
+    const diagnostics = getRequestDiagnostics(openRouterPayload)
+    console.log('OpenRouter rerank request diagnostics', {
+      ...diagnostics,
+      candidateCount: parsedBody.candidates.length,
+      allowedIngredientKeyCount: parsedBody.allowedIngredientKeys.length,
+    })
+
     const openRouterResult = await sendOpenRouterRequest(
       openRouterApiKey,
-      buildOpenRouterPayload(openRouterModel, parsedBody)
+      openRouterPayload
     )
 
     if (!openRouterResult.ok) {
       console.error('OpenRouter rerank request failed', {
         status: openRouterResult.status,
         statusText: openRouterResult.statusText,
+        ...diagnostics,
         body: getSnippet(openRouterResult.body),
       })
 
