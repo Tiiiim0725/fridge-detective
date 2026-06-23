@@ -452,6 +452,36 @@ function guidelineKey(ingredientKey: string, storageLocation: FridgeStorageLocat
   return `${ingredientKey}::${storageLocation}`
 }
 
+function buildLocationNeutralGuideline(
+  guideline: IngredientStorageGuideline,
+  storageLocation: FridgeStorageLocation
+): IngredientStorageGuideline {
+  return {
+    ...guideline,
+    storageLocation,
+    note: null,
+  }
+}
+
+function findGuidelineForItem(
+  item: FridgeItem,
+  exactGuidelineByKey: Map<string, IngredientStorageGuideline>,
+  guidelinesByIngredientKey: Map<string, IngredientStorageGuideline[]>
+): IngredientStorageGuideline | null {
+  if (!item.ingredientKey) {
+    return null
+  }
+
+  const exactGuideline = exactGuidelineByKey.get(guidelineKey(item.ingredientKey, item.storageLocation))
+
+  if (exactGuideline) {
+    return exactGuideline
+  }
+
+  const fallbackGuideline = guidelinesByIngredientKey.get(item.ingredientKey)?.[0]
+  return fallbackGuideline ? buildLocationNeutralGuideline(fallbackGuideline, item.storageLocation) : null
+}
+
 function inventorySortWeight(item: FridgeInventoryItem): number {
   if (item.timing.status === 'past_suggested') return 0
   if (item.timing.status === 'use_soon') return 1
@@ -931,11 +961,15 @@ export async function getFridgeInventoryItems(): Promise<FridgeInventoryItem[]> 
     guidelineKey(guideline.ingredientKey, guideline.storageLocation),
     guideline,
   ]))
+  const guidelinesByIngredientKey = guidelines.reduce((map, guideline) => {
+    const current = map.get(guideline.ingredientKey) ?? []
+    current.push(guideline)
+    map.set(guideline.ingredientKey, current)
+    return map
+  }, new Map<string, IngredientStorageGuideline[]>())
 
   return sortInventoryItems(items.map((item) => {
-    const guideline = item.ingredientKey
-      ? guidelineByKey.get(guidelineKey(item.ingredientKey, item.storageLocation)) ?? null
-      : null
+    const guideline = findGuidelineForItem(item, guidelineByKey, guidelinesByIngredientKey)
 
     return {
       ...item,
