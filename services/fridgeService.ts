@@ -16,6 +16,7 @@ import type {
   FridgeItem,
   FridgeItemSource,
   FridgeItemStatus,
+  FridgeInventoryTimingMode,
   FridgeStorageLocation,
   FridgeExpirySource,
   FridgeInventoryItem,
@@ -141,7 +142,13 @@ interface SaveActiveFridgeItemInput {
   quantityCount: number | null
   source: FridgeItemSource
   storageLocation?: FridgeStorageLocation
+  inventoryTimingMode?: FridgeInventoryTimingMode
   lastSeenAt?: string
+}
+
+interface ConfirmFridgeScanItemRequest {
+  scanItemId: string
+  inventoryTimingMode?: FridgeInventoryTimingMode
 }
 
 function toServiceError(error: unknown, fallbackMessage: string): Error {
@@ -452,6 +459,33 @@ function guidelineKey(ingredientKey: string, storageLocation: FridgeStorageLocat
   return `${ingredientKey}::${storageLocation}`
 }
 
+async function getSuggestedExpiresAt(input: {
+  ingredientKey: string | null
+  storageLocation: FridgeStorageLocation
+  storedAt: string
+}): Promise<string | null> {
+  if (!input.ingredientKey) {
+    return null
+  }
+
+  const { data, error } = await supabase
+    .from('ingredient_storage_guidelines')
+    .select('storage_location, suggested_days_max')
+    .eq('ingredient_key', input.ingredientKey)
+
+  if (error) {
+    throw toServiceError(error, 'Failed to query ingredient storage guideline')
+  }
+
+  const rows = (data ?? []) as Array<{
+    storage_location: string
+    suggested_days_max: number
+  }>
+  const guideline = rows.find((row) => row.storage_location === input.storageLocation) ?? rows[0]
+
+  return guideline ? addDaysAsDateString(input.storedAt, guideline.suggested_days_max) : null
+}
+
 function buildLocationNeutralGuideline(
   guideline: IngredientStorageGuideline,
   storageLocation: FridgeStorageLocation
@@ -540,6 +574,7 @@ async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<F
   const lastSeenAt = input.lastSeenAt ?? new Date().toISOString()
   const ingredientKey = normalizeOptionalIngredientKey(input.ingredientKey)
   const storageLocation = input.storageLocation ?? 'fridge'
+  const explicitTimingMode = input.inventoryTimingMode ?? null
 
   if (await isPantryIngredientKey(ingredientKey)) {
     throw new Error('Pantry items should be saved to pantry_items, not fridge_items.')
@@ -575,15 +610,27 @@ async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<F
 
     if (existing) {
       const existingRow = existing as FridgeItemRow
+      const shouldResetStoredAt = explicitTimingMode === 'newly_stored'
+      const shouldPreserveTiming = explicitTimingMode === 'already_in_fridge'
+      const nextStoredAt = shouldResetStoredAt
+        ? lastSeenAt
+        : shouldPreserveTiming
+          ? existingRow.stored_at
+          : existingRow.stored_at ?? lastSeenAt
+      const suggestedExpiresAt = shouldResetStoredAt
+        ? await getSuggestedExpiresAt({ ingredientKey, storageLocation, storedAt: lastSeenAt })
+        : null
       const { data: updated, error: updateError } = await supabase
         .from('fridge_items')
         .update({
           ...payload,
-          stored_at: existingRow.stored_at ?? lastSeenAt,
-          opened_at: existingRow.opened_at,
-          expires_at: existingRow.expires_at,
-          storage_location: existingRow.storage_location ?? storageLocation,
-          expiry_source: existingRow.expiry_source ?? 'system_suggested',
+          stored_at: nextStoredAt,
+          opened_at: shouldResetStoredAt ? null : existingRow.opened_at,
+          expires_at: shouldResetStoredAt ? suggestedExpiresAt : existingRow.expires_at,
+          storage_location: shouldResetStoredAt ? storageLocation : existingRow.storage_location ?? storageLocation,
+          expiry_source: shouldResetStoredAt
+            ? suggestedExpiresAt ? 'system_suggested' : 'unknown'
+            : existingRow.expiry_source ?? 'system_suggested',
         })
         .eq('id', existingRow.id)
         .eq('user_id', input.userId)
@@ -598,13 +645,19 @@ async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<F
     }
   }
 
+  const shouldInitializeStoredAt = explicitTimingMode !== 'already_in_fridge'
+  const suggestedExpiresAt = shouldInitializeStoredAt
+    ? await getSuggestedExpiresAt({ ingredientKey, storageLocation, storedAt: lastSeenAt })
+    : null
+
   const { data: inserted, error: insertError } = await supabase
     .from('fridge_items')
     .insert({
       ...payload,
-      stored_at: lastSeenAt,
+      stored_at: shouldInitializeStoredAt ? lastSeenAt : null,
       opened_at: null,
-      expires_at: null,
+      expires_at: suggestedExpiresAt,
+      expiry_source: suggestedExpiresAt ? 'system_suggested' : 'unknown',
     })
     .select()
     .single()
@@ -614,6 +667,30 @@ async function saveActiveFridgeItem(input: SaveActiveFridgeItemInput): Promise<F
   }
 
   return mapFridgeItemRow(inserted as FridgeItemRow)
+}
+
+function normalizeConfirmScanItemRequests(input: ConfirmFridgeScanItemsInput): ConfirmFridgeScanItemRequest[] {
+  const requests = input.items && input.items.length > 0
+    ? input.items.map((item) => ({
+      scanItemId: item.scanItemId,
+      inventoryTimingMode: item.inventoryTimingMode,
+    }))
+    : (input.itemIds ?? []).map((itemId) => ({
+      scanItemId: itemId,
+      inventoryTimingMode: undefined,
+    }))
+
+  const requestById = new Map<string, ConfirmFridgeScanItemRequest>()
+
+  for (const request of requests) {
+    if (!request.scanItemId || requestById.has(request.scanItemId)) {
+      continue
+    }
+
+    requestById.set(request.scanItemId, request)
+  }
+
+  return Array.from(requestById.values())
 }
 
 export async function createGuidedFridgeScan(input?: CreateFridgeScanInput): Promise<FridgeScan> {
@@ -811,7 +888,12 @@ export async function getScanItems(scanId: string): Promise<FridgeScanItem[]> {
 
 export async function confirmFridgeScanItems(input: ConfirmFridgeScanItemsInput): Promise<FridgeItem[]> {
   const authUser = await ensureAuthUser()
-  const requestedItemIds = Array.from(new Set(input.itemIds))
+  const requestedItems = normalizeConfirmScanItemRequests(input)
+  const requestedItemIds = requestedItems.map((item) => item.scanItemId)
+  const inventoryTimingModeByScanItemId = new Map(requestedItems.map((item) => [
+    item.scanItemId,
+    item.inventoryTimingMode,
+  ]))
 
   if (requestedItemIds.length === 0) {
     return []
@@ -884,6 +966,7 @@ export async function confirmFridgeScanItems(input: ConfirmFridgeScanItemsInput)
       quantityText: scanItem.quantity_text,
       quantityCount: scanItem.quantity_count,
       source: 'scan_confirmed',
+      inventoryTimingMode: inventoryTimingModeByScanItemId.get(scanItem.id),
       lastSeenAt,
     }))
   }

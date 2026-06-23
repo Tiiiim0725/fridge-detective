@@ -32,6 +32,7 @@ import { addPantryItems } from '@/services/profileService'
 import {
   FRIDGE_PHOTO_GUIDE_STEPS,
   type FridgeItem,
+  type FridgeInventoryTimingMode,
   type FridgePhotoGuideStep,
   type FridgePhotoZoneKey,
   type FridgeQuantityKind,
@@ -45,6 +46,7 @@ type FlowStatus = 'idle' | 'recognizing' | 'ready' | 'confirming' | 'success' | 
 type PhotoSource = 'camera' | 'url'
 type IoniconName = keyof typeof Ionicons.glyphMap
 type ConversationalRecommendStatus = 'idle' | 'loading' | 'success' | 'fallback' | 'empty' | 'error'
+type InventoryTimingModeByItemId = Record<string, FridgeInventoryTimingMode>
 
 export type FridgeRecognitionFlowMode = 'formal' | 'dev'
 
@@ -207,6 +209,14 @@ function iconForItemName(name: string): IoniconName {
   return 'restaurant-outline'
 }
 
+function inventoryTimingModeLabel(mode: FridgeInventoryTimingMode): string {
+  return mode === 'newly_stored' ? '新放入' : '已在冰箱'
+}
+
+function inventoryTimingModeHint(mode: FridgeInventoryTimingMode): string {
+  return mode === 'newly_stored' ? '从今天开始计算' : '不重置存放时间'
+}
+
 function dedupeScanItemsByIngredientKey(items: FridgeScanItem[]): FridgeScanItem[] {
   const itemsByIngredientKey = new Map<string, FridgeScanItem>()
 
@@ -246,6 +256,7 @@ export function FridgeRecognitionFlow({
   const [pantryScanItems, setPantryScanItems] = useState<FridgeScanItem[]>([])
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
   const [selectedPantryItemIds, setSelectedPantryItemIds] = useState<string[]>([])
+  const [inventoryTimingModes, setInventoryTimingModes] = useState<InventoryTimingModeByItemId>({})
   const [confirmedCount, setConfirmedCount] = useState<number | null>(null)
   const [confirmedPantryCount, setConfirmedPantryCount] = useState<number | null>(null)
   const [currentFridgeItems, setCurrentFridgeItems] = useState<FridgeItem[]>([])
@@ -448,6 +459,20 @@ export function FridgeRecognitionFlow({
     ))
   }
 
+  function timingModeForItem(itemId: string): FridgeInventoryTimingMode {
+    return inventoryTimingModes[itemId] ?? 'newly_stored'
+  }
+
+  function toggleInventoryTimingMode(itemId: string) {
+    setInventoryTimingModes((current) => {
+      const currentMode = current[itemId] ?? 'newly_stored'
+      return {
+        ...current,
+        [itemId]: currentMode === 'newly_stored' ? 'already_in_fridge' : 'newly_stored',
+      }
+    })
+  }
+
   function resetFlow() {
     setPhotos([])
     setFlowStatus('idle')
@@ -461,6 +486,7 @@ export function FridgeRecognitionFlow({
     setLocalManualPantryItems([])
     setSelectedItemIds([])
     setSelectedPantryItemIds([])
+    setInventoryTimingModes({})
     setConfirmedCount(null)
     setConfirmedPantryCount(null)
     setCurrentFridgeItems([])
@@ -484,6 +510,7 @@ export function FridgeRecognitionFlow({
     setLocalManualPantryItems([])
     setSelectedItemIds([])
     setSelectedPantryItemIds([])
+    setInventoryTimingModes({})
     setConfirmedCount(null)
     setConfirmedPantryCount(null)
     setCurrentFridgeItems([])
@@ -526,6 +553,7 @@ export function FridgeRecognitionFlow({
           .map((item) => item.id)
       )
       setSelectedPantryItemIds([])
+      setInventoryTimingModes({})
       setFlowStatus('ready')
 
       if (result.items.length === 0) {
@@ -612,7 +640,10 @@ export function FridgeRecognitionFlow({
       const savedScanItems = scanId && selectedScanItemIds.length > 0
         ? await confirmFridgeScanItems({
             scanId,
-            itemIds: selectedScanItemIds,
+            items: selectedScanItemIds.map((scanItemId) => ({
+              scanItemId,
+              inventoryTimingMode: timingModeForItem(scanItemId),
+            })),
           })
         : []
       const savedManualItems = selectedLocalManualItems.length > 0
@@ -889,7 +920,7 @@ export function FridgeRecognitionFlow({
               </Text>
               <Text style={styles.resultsSubtitle}>
                 {confirmableItems.length > 0
-                  ? '默认全选，点一下可以取消误识别项。'
+                  ? '默认全选；点卡片可取消误识别，点新旧标签可调整建议食用时间起算。'
                   : localManualItems.length > 0
                     ? '手动添加的食材会在你确认后进入库存。'
                     : recognizedItems.length > 0
@@ -909,6 +940,7 @@ export function FridgeRecognitionFlow({
               const selected = item.source === 'preview' || selectedItemIds.includes(item.id)
               const scanItem = recognizedItems.find((candidate) => candidate.id === item.id)
               const localManualItem = localManualItems.find((candidate) => candidate.id === item.id)
+              const timingMode = timingModeForItem(item.id)
               const weak = scanItem
                 ? scanItem.needsReview || (scanItem.confidence ?? 0) < 0.7
                 : localManualItem?.needsReview ?? false
@@ -931,17 +963,54 @@ export function FridgeRecognitionFlow({
                   <Text style={styles.detectedName} numberOfLines={2}>{item.displayName}</Text>
                   <Text style={styles.detectedQuantity} numberOfLines={1}>{item.quantityLabel}</Text>
                   {scanItem || localManualItem ? (
-                    <View style={styles.detectedMetaRow}>
-                      <Text style={styles.confidenceText}>
-                        {scanItem ? confidenceLabel(scanItem.confidence) : '手动添加'}
-                      </Text>
-                      {weak ? <Text style={styles.reviewBadge}>待确认</Text> : null}
-                      <Ionicons
-                        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                        size={18}
-                        color={selected ? '#1f5945' : '#9c9087'}
-                      />
-                    </View>
+                    <>
+                      {scanItem ? (
+                        <Pressable
+                          onPress={(event) => {
+                            event.stopPropagation()
+                            toggleInventoryTimingMode(item.id)
+                          }}
+                          style={[
+                            styles.inventoryTimingChip,
+                            timingMode === 'newly_stored'
+                              ? styles.inventoryTimingChipNew
+                              : styles.inventoryTimingChipExisting,
+                          ]}
+                        >
+                          <View style={[
+                            styles.inventoryTimingDot,
+                            timingMode === 'newly_stored'
+                              ? styles.inventoryTimingDotNew
+                              : styles.inventoryTimingDotExisting,
+                          ]} />
+                          <View style={styles.inventoryTimingCopy}>
+                            <Text style={[
+                              styles.inventoryTimingLabel,
+                              timingMode === 'newly_stored'
+                                ? styles.inventoryTimingLabelNew
+                                : styles.inventoryTimingLabelExisting,
+                            ]}>
+                              {inventoryTimingModeLabel(timingMode)}
+                            </Text>
+                            <Text style={styles.inventoryTimingHint}>
+                              {inventoryTimingModeHint(timingMode)}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ) : null}
+
+                      <View style={styles.detectedMetaRow}>
+                        <Text style={styles.confidenceText}>
+                          {scanItem ? confidenceLabel(scanItem.confidence) : '手动添加'}
+                        </Text>
+                        {weak ? <Text style={styles.reviewBadge}>待确认</Text> : null}
+                        <Ionicons
+                          name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={18}
+                          color={selected ? '#1f5945' : '#9c9087'}
+                        />
+                      </View>
+                    </>
                   ) : null}
                 </Pressable>
               )
@@ -1223,6 +1292,7 @@ export function FridgeRecognitionFlow({
                   })),
                   photoResults,
                   selectedItemIds,
+                  inventoryTimingModes,
                   localManualItems,
                   confirmedCount,
                   currentFridgeItems: currentFridgeItems.map((item) => ({
@@ -1829,6 +1899,37 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  inventoryTimingChip: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+    minHeight: 44,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+  },
+  inventoryTimingChipNew: {
+    backgroundColor: 'rgba(231, 244, 236, 0.86)',
+    borderColor: '#b8dcc8',
+  },
+  inventoryTimingChipExisting: {
+    backgroundColor: 'rgba(255, 239, 236, 0.9)',
+    borderColor: '#efc2bb',
+  },
+  inventoryTimingDot: {
+    borderRadius: 999,
+    height: 10,
+    width: 10,
+  },
+  inventoryTimingDotNew: { backgroundColor: '#2f8c5c' },
+  inventoryTimingDotExisting: { backgroundColor: '#c24f3f' },
+  inventoryTimingCopy: { flex: 1, minWidth: 0 },
+  inventoryTimingLabel: { fontSize: 13, fontWeight: '900' },
+  inventoryTimingLabelNew: { color: '#225f40' },
+  inventoryTimingLabelExisting: { color: '#8d3e35' },
+  inventoryTimingHint: { color: '#746b63', fontSize: 11, fontWeight: '800', marginTop: 1 },
   detectedMetaRow: {
     alignItems: 'center',
     flexDirection: 'row',

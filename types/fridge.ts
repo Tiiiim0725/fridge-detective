@@ -47,6 +47,8 @@ export type FridgeStorageLocation = 'fridge' | 'freezer' | 'pantry' | 'room_temp
 
 export type FridgeExpirySource = 'system_suggested' | 'user_override' | 'unknown'
 
+export type FridgeInventoryTimingMode = 'newly_stored' | 'already_in_fridge'
+
 export type FridgeInventoryTimingStatus =
   | 'unknown'
   | 'comfortable'
@@ -199,7 +201,11 @@ export interface ManualFridgeScanItemInput {
 
 export interface ConfirmFridgeScanItemsInput {
   scanId: string
-  itemIds: string[]
+  itemIds?: string[]
+  items?: Array<{
+    scanItemId: string
+    inventoryTimingMode: FridgeInventoryTimingMode
+  }>
 }
 
 export interface SaveConfirmedFridgeItemInput {
