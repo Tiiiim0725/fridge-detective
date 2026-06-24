@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
 import { useState, type ComponentProps } from 'react'
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -16,6 +17,12 @@ import {
   COOKING_SHADOW,
 } from '@/constants/cookingUi'
 import { askCookingHelper } from '@/services/cookingAiService'
+import {
+  askWithCookingQuestionPhoto,
+  pickCookingQuestionPhoto,
+  type PickedCookingQuestionPhoto,
+  type CookingQuestionPhotoSource,
+} from '@/services/cookingQuestionPhotoService'
 import type {
   AskCookingHelperInput,
   AskCookingHelperResult,
@@ -25,7 +32,10 @@ import type {
 type AskMode = CookingAiAnswerType
 
 type CookingAssistantPanelProps = {
-  context: Omit<AskCookingHelperInput, 'answerType' | 'questionText' | 'questionImageUrl'>
+  context: Omit<
+    AskCookingHelperInput,
+    'answerType' | 'questionText' | 'questionImageUrl' | 'questionPhotoId'
+  >
   disabled?: boolean
 }
 
@@ -34,6 +44,8 @@ type ModeOption = {
   label: string
   icon: ComponentProps<typeof MaterialCommunityIcons>['name']
 }
+
+const DEFAULT_PHOTO_QUESTION = '帮我看看这一步做得对不对，下一步该注意什么？'
 
 const modeOptions: ModeOption[] = [
   { key: 'text', label: '问一句', icon: 'message-text-outline' },
@@ -62,6 +74,7 @@ export function CookingAssistantPanel({
   const [textQuestion, setTextQuestion] = useState('')
   const [photoQuestion, setPhotoQuestion] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const [pickedPhoto, setPickedPhoto] = useState<PickedCookingQuestionPhoto | null>(null)
   const [voiceTranscript, setVoiceTranscript] = useState('')
   const [answer, setAnswer] = useState<AskCookingHelperResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -77,11 +90,36 @@ export function CookingAssistantPanel({
     setExpanded(true)
   }
 
+  async function chooseQuestionPhoto(source: CookingQuestionPhotoSource) {
+    setError(null)
+
+    try {
+      const photo = await pickCookingQuestionPhoto(source)
+      if (!photo) return
+
+      setPickedPhoto(photo)
+      setImageUrl('')
+      setAnswer(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    }
+  }
+
   async function submitQuestion() {
     setLoading(true)
     setError(null)
 
     try {
+      if (mode === 'photo' && pickedPhoto) {
+        const result = await askWithCookingQuestionPhoto({
+          ...context,
+          photo: pickedPhoto,
+          questionText: photoQuestion || DEFAULT_PHOTO_QUESTION,
+        })
+        setAnswer(result.answer)
+        return
+      }
+
       const result = await askCookingHelper({
         ...context,
         answerType: mode,
@@ -89,7 +127,7 @@ export function CookingAssistantPanel({
           ? textQuestion
           : mode === 'voice'
             ? voiceTranscript
-            : photoQuestion || '帮我看看这一步做得对不对，下一步该注意什么？',
+            : photoQuestion || DEFAULT_PHOTO_QUESTION,
         questionImageUrl: mode === 'photo' ? imageUrl : null,
       })
       setAnswer(result)
@@ -105,7 +143,7 @@ export function CookingAssistantPanel({
     && (
       (mode === 'text' && textQuestion.trim().length > 0)
       || (mode === 'voice' && voiceTranscript.trim().length > 0)
-      || (mode === 'photo' && imageUrl.trim().length > 0)
+      || (mode === 'photo' && (pickedPhoto !== null || imageUrl.trim().length > 0))
     )
 
   return (
@@ -165,9 +203,66 @@ export function CookingAssistantPanel({
 
           {mode === 'photo' ? (
             <View style={styles.fieldGroup}>
+              <View style={styles.photoActionRow}>
+                <Pressable
+                  disabled={disabled || loading}
+                  onPress={() => void chooseQuestionPhoto('library')}
+                  style={({ pressed }) => [
+                    styles.photoActionButton,
+                    (disabled || loading) && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="image-plus-outline" size={18} color={COOKING_COLORS.text} />
+                  <Text style={styles.photoActionButtonText}>选一张</Text>
+                </Pressable>
+                <Pressable
+                  disabled={disabled || loading}
+                  onPress={() => void chooseQuestionPhoto('camera')}
+                  style={({ pressed }) => [
+                    styles.photoActionButton,
+                    (disabled || loading) && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="camera-outline" size={18} color={COOKING_COLORS.text} />
+                  <Text style={styles.photoActionButtonText}>拍一下</Text>
+                </Pressable>
+              </View>
+
+              {pickedPhoto ? (
+                <View style={styles.photoPreviewCard}>
+                  <Image source={{ uri: pickedPhoto.uri }} style={styles.photoPreview} />
+                  <View style={styles.photoPreviewTextBlock}>
+                    <Text style={styles.photoPreviewTitle}>已选择一张步骤照片</Text>
+                    <Text style={styles.photoPreviewMeta}>
+                      {pickedPhoto.width && pickedPhoto.height
+                        ? `${pickedPhoto.width} x ${pickedPhoto.height}`
+                        : '准备上传给做饭助手'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityLabel="移除已选择照片"
+                    onPress={() => setPickedPhoto(null)}
+                    style={styles.removePhotoButton}
+                  >
+                    <MaterialCommunityIcons name="close" size={18} color={COOKING_COLORS.mutedText} />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>或粘贴图片 URL</Text>
+                <View style={styles.orLine} />
+              </View>
+
               <TextInput
                 value={imageUrl}
-                onChangeText={setImageUrl}
+                onChangeText={(value) => {
+                  setImageUrl(value)
+                  if (value.trim()) setPickedPhoto(null)
+                }}
                 editable={!disabled && !loading}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -194,7 +289,7 @@ export function CookingAssistantPanel({
                 <Text style={styles.voiceBadgeText}>模拟语音转写</Text>
               </View>
               <Text style={styles.voiceHint}>
-                先用文字模拟“说一句”的体验；真语音、播报和唤醒词仍保留在 Tutorial Lab 中，后续单独迁。
+                先用文字模拟“说一句”的体验；真语音、播报和唤醒词会按独立节点迁移。
               </Text>
               <TextInput
                 value={voiceTranscript}
@@ -326,6 +421,74 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 11,
+  },
+  photoActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  photoActionButton: {
+    alignItems: 'center',
+    backgroundColor: '#fff7ed',
+    borderColor: COOKING_COLORS.border,
+    borderRadius: COOKING_RADIUS,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 7,
+    justifyContent: 'center',
+    minHeight: COOKING_CONTROL_SIZE,
+  },
+  photoActionButtonText: {
+    color: COOKING_COLORS.text,
+    fontWeight: '900',
+  },
+  photoPreviewCard: {
+    alignItems: 'center',
+    backgroundColor: '#f6efe7',
+    borderRadius: COOKING_RADIUS,
+    flexDirection: 'row',
+    gap: 10,
+    padding: 8,
+  },
+  photoPreview: {
+    backgroundColor: COOKING_COLORS.border,
+    borderRadius: Math.max(12, COOKING_RADIUS - 6),
+    height: 64,
+    width: 64,
+  },
+  photoPreviewTextBlock: {
+    flex: 1,
+    gap: 3,
+  },
+  photoPreviewTitle: {
+    color: COOKING_COLORS.text,
+    fontWeight: '900',
+  },
+  photoPreviewMeta: {
+    color: COOKING_COLORS.mutedText,
+    fontSize: 12,
+  },
+  removePhotoButton: {
+    alignItems: 'center',
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  orRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 9,
+    paddingVertical: 2,
+  },
+  orLine: {
+    backgroundColor: COOKING_COLORS.border,
+    flex: 1,
+    height: 1,
+  },
+  orText: {
+    color: COOKING_COLORS.mutedText,
+    fontSize: 12,
+    fontWeight: '800',
   },
   voiceBadge: {
     alignItems: 'center',

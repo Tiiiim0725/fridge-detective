@@ -9,6 +9,7 @@ export type CookingAiRiskLevel = 'low' | 'medium' | 'high'
 
 export type AskCookingHelperInput = {
   sessionId?: string | null
+  questionPhotoId?: string | null
   recipeId: string
   recipeKey: string
   recipeTitle: string
