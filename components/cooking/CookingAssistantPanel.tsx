@@ -24,6 +24,10 @@ import {
   type CookingQuestionPhotoSource,
   type PickedCookingQuestionPhoto,
 } from '@/services/cookingQuestionPhotoService'
+import {
+  speakCookingText,
+  stopCookingSpeech,
+} from '@/services/cookingSpeechService'
 import type {
   AskCookingHelperInput,
   AskCookingHelperResult,
@@ -80,6 +84,7 @@ export function CookingAssistantPanel({
   const [answer, setAnswer] = useState<AskCookingHelperResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [answerSpeaking, setAnswerSpeaking] = useState(false)
 
   const voiceContextualStrings = useMemo(() => [
     context.recipeTitle,
@@ -108,6 +113,12 @@ export function CookingAssistantPanel({
     voiceAssistant.resetVoiceAssistant()
   }, [expanded, mode, voiceAssistant.resetVoiceAssistant])
 
+  useEffect(() => {
+    return () => {
+      void stopCookingSpeech()
+    }
+  }, [])
+
   function selectMode(nextMode: AskMode) {
     setError(null)
     if (expanded && mode === nextMode) {
@@ -133,9 +144,32 @@ export function CookingAssistantPanel({
     }
   }
 
+  async function speakAnswer(result: AskCookingHelperResult | null) {
+    if (!result?.answerText.trim()) return
+
+    setError(null)
+    setAnswerSpeaking(true)
+
+    try {
+      await speakCookingText(result.answerText)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setAnswerSpeaking(false)
+    }
+  }
+
+  async function stopAnswerSpeech() {
+    setError(null)
+    await stopCookingSpeech()
+    setAnswerSpeaking(false)
+  }
+
   async function submitQuestion() {
     setLoading(true)
     setError(null)
+    setAnswerSpeaking(false)
+    void stopCookingSpeech()
 
     try {
       if (mode === 'photo' && pickedPhoto) {
@@ -159,6 +193,9 @@ export function CookingAssistantPanel({
         questionImageUrl: mode === 'photo' ? imageUrl : null,
       })
       setAnswer(result)
+      if (mode === 'voice') {
+        void speakAnswer(result)
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
@@ -414,6 +451,38 @@ export function CookingAssistantPanel({
                 </Text>
               </View>
               <Text style={styles.answerText}>{answer.answerText}</Text>
+              <View style={styles.answerActionRow}>
+                <Pressable
+                  disabled={answerSpeaking}
+                  onPress={() => void speakAnswer(answer)}
+                  style={({ pressed }) => [
+                    styles.answerSpeechButton,
+                    answerSpeaking && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  {answerSpeaking ? (
+                    <ActivityIndicator color={COOKING_COLORS.secondary} />
+                  ) : (
+                    <MaterialCommunityIcons name="volume-high" size={18} color={COOKING_COLORS.secondary} />
+                  )}
+                  <Text style={styles.answerSpeechButtonText}>
+                    {answerSpeaking ? '正在播报' : '朗读回答'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  disabled={!answerSpeaking}
+                  onPress={() => void stopAnswerSpeech()}
+                  style={({ pressed }) => [
+                    styles.answerStopButton,
+                    !answerSpeaking && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="stop" size={17} color={COOKING_COLORS.text} />
+                  <Text style={styles.answerStopButtonText}>停止</Text>
+                </Pressable>
+              </View>
             </View>
           ) : null}
 
@@ -678,6 +747,43 @@ const styles = StyleSheet.create({
   answerText: {
     color: '#294535',
     lineHeight: 22,
+  },
+  answerActionRow: {
+    flexDirection: 'row',
+    gap: 9,
+    paddingTop: 4,
+  },
+  answerSpeechButton: {
+    alignItems: 'center',
+    backgroundColor: '#f7fbf7',
+    borderColor: '#cddfd2',
+    borderRadius: COOKING_RADIUS,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: 12,
+  },
+  answerSpeechButtonText: {
+    color: COOKING_COLORS.secondary,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  answerStopButton: {
+    alignItems: 'center',
+    backgroundColor: '#fff7ed',
+    borderColor: COOKING_COLORS.border,
+    borderRadius: COOKING_RADIUS,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    minHeight: 38,
+    paddingHorizontal: 12,
+  },
+  answerStopButtonText: {
+    color: COOKING_COLORS.text,
+    fontSize: 12,
+    fontWeight: '900',
   },
   errorText: {
     color: COOKING_COLORS.errorText,
