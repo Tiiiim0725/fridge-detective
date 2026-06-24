@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
-import { useState, type ComponentProps } from 'react'
+import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -16,12 +16,13 @@ import {
   COOKING_RADIUS,
   COOKING_SHADOW,
 } from '@/constants/cookingUi'
+import { useCookingVoiceAssistant } from '@/hooks/useCookingVoiceAssistant'
 import { askCookingHelper } from '@/services/cookingAiService'
 import {
   askWithCookingQuestionPhoto,
   pickCookingQuestionPhoto,
-  type PickedCookingQuestionPhoto,
   type CookingQuestionPhotoSource,
+  type PickedCookingQuestionPhoto,
 } from '@/services/cookingQuestionPhotoService'
 import type {
   AskCookingHelperInput,
@@ -79,6 +80,33 @@ export function CookingAssistantPanel({
   const [answer, setAnswer] = useState<AskCookingHelperResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const voiceContextualStrings = useMemo(() => [
+    context.recipeTitle,
+    context.stepTitle,
+    context.stepBody,
+    context.assistantContext ?? '',
+    ...context.ingredientKeys,
+    ...context.equipmentKeys,
+  ], [
+    context.assistantContext,
+    context.equipmentKeys,
+    context.ingredientKeys,
+    context.recipeTitle,
+    context.stepBody,
+    context.stepTitle,
+  ])
+
+  const voiceAssistant = useCookingVoiceAssistant({
+    contextualStrings: voiceContextualStrings,
+    disabled: disabled || loading,
+    onTranscriptChange: setVoiceTranscript,
+  })
+
+  useEffect(() => {
+    if (expanded && mode === 'voice') return
+    voiceAssistant.resetVoiceAssistant()
+  }, [expanded, mode, voiceAssistant.resetVoiceAssistant])
 
   function selectMode(nextMode: AskMode) {
     setError(null)
@@ -284,22 +312,75 @@ export function CookingAssistantPanel({
 
           {mode === 'voice' ? (
             <View style={styles.fieldGroup}>
-              <View style={styles.voiceBadge}>
-                <View style={styles.voiceDot} />
-                <Text style={styles.voiceBadgeText}>模拟语音转写</Text>
+              <View style={styles.voiceTopRow}>
+                <Pressable
+                  disabled={disabled || loading}
+                  onPress={() => (
+                    voiceAssistant.status === 'listening'
+                      ? voiceAssistant.stopListening()
+                      : void voiceAssistant.startListening()
+                  )}
+                  style={({ pressed }) => [
+                    styles.voiceMicButton,
+                    voiceAssistant.status === 'listening' && styles.voiceMicButtonActive,
+                    (disabled || loading) && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={voiceAssistant.status === 'listening' ? 'microphone' : 'microphone-outline'}
+                    size={24}
+                    color="#fff"
+                  />
+                </Pressable>
+                <View style={styles.voiceCopy}>
+                  <Text style={styles.voiceTitle}>
+                    {voiceAssistant.status === 'listening' ? '正在听你说' : '点按说一句'}
+                  </Text>
+                  <Text style={styles.voiceHint}>
+                    真实语音不可用时会自动变成模拟转写，发送后仍按 voice 类型问 AI。
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.voiceHint}>
-                先用文字模拟“说一句”的体验；真语音、播报和唤醒词会按独立节点迁移。
-              </Text>
+
+              {voiceAssistant.status === 'listening' ? (
+                <View style={styles.voiceMeterTrack}>
+                  <View style={[styles.voiceMeterFill, { width: `${Math.round(voiceAssistant.volume * 100)}%` }]} />
+                </View>
+              ) : null}
+
+              {voiceAssistant.message ? (
+                <Text style={styles.voiceMessage}>{voiceAssistant.message}</Text>
+              ) : null}
+
+              {voiceAssistant.interimTranscript ? (
+                <Text style={styles.interimTranscript}>{voiceAssistant.interimTranscript}</Text>
+              ) : null}
+
               <TextInput
                 value={voiceTranscript}
                 onChangeText={setVoiceTranscript}
-                editable={!disabled && !loading}
+                editable={!disabled && !loading && voiceAssistant.status !== 'listening'}
                 placeholder="比如：我没有葱怎么办？"
                 placeholderTextColor="#9a8d82"
                 multiline
                 style={styles.input}
               />
+
+              {voiceAssistant.status !== 'listening' ? (
+                <Pressable
+                  disabled={disabled || loading}
+                  onPress={voiceAssistant.openSimulatedInput}
+                  style={({ pressed }) => [
+                    styles.simulatedVoiceButton,
+                    (disabled || loading) && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="keyboard-outline" size={18} color={COOKING_COLORS.text} />
+                  <Text style={styles.simulatedVoiceButtonText}>先用打字模拟语音</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
@@ -490,27 +571,74 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  voiceBadge: {
+  voiceTopRow: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
     flexDirection: 'row',
-    gap: 6,
+    gap: 12,
   },
-  voiceDot: {
+  voiceMicButton: {
+    alignItems: 'center',
     backgroundColor: COOKING_COLORS.secondary,
-    borderRadius: 4,
-    height: 8,
-    width: 8,
+    borderRadius: COOKING_CONTROL_SIZE / 2,
+    height: COOKING_CONTROL_SIZE,
+    justifyContent: 'center',
+    width: COOKING_CONTROL_SIZE,
   },
-  voiceBadgeText: {
-    color: COOKING_COLORS.secondary,
-    fontSize: 12,
+  voiceMicButtonActive: {
+    backgroundColor: COOKING_COLORS.accent,
+  },
+  voiceCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  voiceTitle: {
+    color: COOKING_COLORS.text,
+    fontSize: 16,
     fontWeight: '900',
   },
   voiceHint: {
     color: COOKING_COLORS.mutedText,
     fontSize: 12,
     lineHeight: 18,
+  },
+  voiceMeterTrack: {
+    backgroundColor: COOKING_COLORS.border,
+    borderRadius: 999,
+    height: 8,
+    overflow: 'hidden',
+  },
+  voiceMeterFill: {
+    backgroundColor: COOKING_COLORS.secondary,
+    borderRadius: 999,
+    height: '100%',
+  },
+  voiceMessage: {
+    color: COOKING_COLORS.secondary,
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  interimTranscript: {
+    color: COOKING_COLORS.mutedText,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  simulatedVoiceButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff7ed',
+    borderColor: COOKING_COLORS.border,
+    borderRadius: COOKING_RADIUS,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: 13,
+  },
+  simulatedVoiceButtonText: {
+    color: COOKING_COLORS.text,
+    fontSize: 12,
+    fontWeight: '900',
   },
   sendButton: {
     alignItems: 'center',
