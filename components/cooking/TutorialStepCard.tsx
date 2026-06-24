@@ -27,10 +27,16 @@ export function TutorialStepCard({
   return (
     <View style={styles.card}>
       <View style={styles.progressRow}>
-        <Text style={styles.eyebrow}>第 {step.stepNumber} 步</Text>
+        <View style={styles.stepBadge}>
+          <Text style={styles.eyebrow}>第 {step.stepNumber} 步</Text>
+        </View>
         <Text style={styles.progressTotal}>共 {totalSteps} 步</Text>
       </View>
-      <Text style={styles.recipeName}>{recipeName}</Text>
+
+      <View style={styles.titleBlock}>
+        <Text style={styles.recipeName}>{recipeName}</Text>
+        <Text style={styles.stepTitle}>{step.title}</Text>
+      </View>
 
       <ActionVisual
         action={action}
@@ -68,18 +74,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  stepBadge: {
+    backgroundColor: '#f3e0d0',
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
   eyebrow: {
     color: COOKING_COLORS.accent,
     fontWeight: '900',
   },
   progressTotal: {
     color: COOKING_COLORS.mutedText,
+    fontWeight: '800',
+  },
+  titleBlock: {
+    gap: 5,
   },
   recipeName: {
     color: COOKING_COLORS.text,
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
-    lineHeight: 35,
+    lineHeight: 36,
+  },
+  stepTitle: {
+    color: COOKING_COLORS.mutedText,
+    fontSize: 17,
+    fontWeight: '800',
   },
   metaRow: {
     flexDirection: 'row',
