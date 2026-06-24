@@ -1,6 +1,11 @@
 import { Image, StyleSheet, Text, View } from 'react-native'
 
 import {
+  COOKING_ACTION_MEDIA_CAPABILITIES,
+  getCookingActionVisual,
+  type CookingActionVisualVariant,
+} from '@/constants/cookingActionVisuals'
+import {
   COOKING_COLORS,
   COOKING_RADIUS,
   COOKING_SHADOW,
@@ -13,25 +18,161 @@ type ActionVisualProps = {
   progress: number
 }
 
-function PlaceholderMedia({ action }: { action: CookingActionAsset | null }) {
+function MiniTile({
+  color,
+  label,
+  rotate = '0deg',
+}: {
+  color: string
+  label: string
+  rotate?: `${number}deg`
+}) {
   return (
-    <View style={styles.motionRing}>
-      <Text style={styles.icon}>{action?.fallbackIcon ?? '🍳'}</Text>
+    <View style={[
+      styles.miniTile,
+      {
+        backgroundColor: color,
+        transform: [{ rotate }],
+      },
+    ]}>
+      <Text style={styles.miniTileLabel}>{label}</Text>
     </View>
   )
 }
 
-function PendingPlayer({ label }: { label: string }) {
+function MotionGlyph({
+  action,
+  visual,
+}: {
+  action: CookingActionAsset | null
+  visual: CookingActionVisualVariant
+}) {
+  if (visual.pattern === 'gather') {
+    return (
+      <View style={styles.glyphStage}>
+        <MiniTile color={visual.secondary} label="菜" rotate="-8deg" />
+        <MiniTile color="#fff8ee" label="碗" rotate="6deg" />
+        <MiniTile color={visual.accent} label="锅" rotate="0deg" />
+      </View>
+    )
+  }
+
+  if (visual.pattern === 'wash') {
+    return (
+      <View style={styles.glyphStage}>
+        <View style={[styles.waterDrop, { backgroundColor: visual.secondary }]} />
+        <View style={[styles.waterStream, { backgroundColor: visual.accent }]} />
+        <View style={[styles.waterStream, styles.waterStreamSmall, { backgroundColor: visual.accent }]} />
+      </View>
+    )
+  }
+
+  if (visual.pattern === 'cut') {
+    return (
+      <View style={styles.glyphStage}>
+        <View style={[styles.knifeBlade, { backgroundColor: visual.accent }]} />
+        <View style={[styles.knifeHandle, { backgroundColor: '#5c463a' }]} />
+        <View style={[styles.cutBoard, { backgroundColor: visual.secondary }]} />
+        <View style={[styles.cutPiece, { backgroundColor: '#fff6e8' }]} />
+      </View>
+    )
+  }
+
+  if (visual.pattern === 'whisk') {
+    return (
+      <View style={styles.glyphStage}>
+        <View style={[styles.bowl, { borderColor: visual.accent, backgroundColor: '#fff8ed' }]} />
+        <View style={[styles.whiskLine, { backgroundColor: visual.accent, transform: [{ rotate: '-28deg' }] }]} />
+        <View style={[styles.whiskLine, { backgroundColor: visual.accent, transform: [{ rotate: '28deg' }] }]} />
+        <Text style={styles.motionIcon}>{action?.fallbackIcon ?? '🥚'}</Text>
+      </View>
+    )
+  }
+
+  if (visual.pattern === 'heat') {
+    return (
+      <View style={styles.glyphStage}>
+        <View style={[styles.pan, { backgroundColor: '#4f443f' }]} />
+        <View style={[styles.panHandle, { backgroundColor: '#4f443f' }]} />
+        <View style={[styles.flame, { backgroundColor: visual.accent }]} />
+        <View style={[styles.flame, styles.flameSmall, { backgroundColor: visual.secondary }]} />
+      </View>
+    )
+  }
+
+  if (visual.pattern === 'simmer') {
+    return (
+      <View style={styles.glyphStage}>
+        <View style={[styles.pot, { backgroundColor: visual.secondary }]} />
+        <View style={[styles.bubble, { backgroundColor: visual.accent }]} />
+        <View style={[styles.bubble, styles.bubbleTwo, { backgroundColor: visual.accent }]} />
+        <View style={[styles.bubble, styles.bubbleThree, { backgroundColor: visual.accent }]} />
+      </View>
+    )
+  }
+
+  if (visual.pattern === 'plate') {
+    return (
+      <View style={styles.glyphStage}>
+        <View style={[styles.plate, { borderColor: visual.accent }]} />
+        <View style={[styles.foodBlob, { backgroundColor: visual.secondary }]} />
+        <View style={[styles.foodBlob, styles.foodBlobSmall, { backgroundColor: visual.accent }]} />
+      </View>
+    )
+  }
+
+  return (
+    <View style={styles.glyphStage}>
+      <View style={[styles.stirPan, { borderColor: visual.accent }]}>
+        <Text style={styles.motionIcon}>{action?.fallbackIcon ?? '🍳'}</Text>
+      </View>
+      <View style={[styles.stirSwoosh, { borderColor: visual.accent }]} />
+      <View style={[styles.stirSwoosh, styles.stirSwooshTwo, { borderColor: visual.accent }]} />
+    </View>
+  )
+}
+
+function PlaceholderMedia({
+  action,
+  visual,
+}: {
+  action: CookingActionAsset | null
+  visual: CookingActionVisualVariant
+}) {
+  return (
+    <View style={styles.placeholderWrap}>
+      <View style={[styles.motionRing, { borderColor: visual.accent }]}>
+        <MotionGlyph action={action} visual={visual} />
+      </View>
+      <View style={[styles.gesturePill, { backgroundColor: visual.accent }]}>
+        <Text style={styles.gesturePillText}>{visual.gestureLabel}</Text>
+      </View>
+    </View>
+  )
+}
+
+function PendingPlayer({
+  label,
+  description,
+}: {
+  label: string
+  description: string
+}) {
   return (
     <View style={styles.pendingPlayer}>
       <Text style={styles.pendingTitle}>{label}</Text>
-      <Text style={styles.pendingHint}>动作素材已经预留，播放器将在后续体验轮接入。</Text>
+      <Text style={styles.pendingHint}>{description}</Text>
     </View>
   )
 }
 
+function getMediaCapability(assetType: CookingActionAsset['assetType']) {
+  return COOKING_ACTION_MEDIA_CAPABILITIES.find((item) => item.assetType === assetType)
+}
+
 export function ActionVisual({ action, instruction, progress }: ActionVisualProps) {
-  let media: React.ReactNode = <PlaceholderMedia action={action} />
+  const visual = getCookingActionVisual(action?.actionKey)
+  let media: React.ReactNode = <PlaceholderMedia action={action} visual={visual} />
 
   if (action?.assetUrl) {
     if (action.assetType === 'image' || action.assetType === 'gif' || action.assetType === 'svg') {
@@ -40,25 +181,48 @@ export function ActionVisual({ action, instruction, progress }: ActionVisualProp
           <Image source={{ uri: action.assetUrl }} resizeMode="cover" style={styles.image} />
         </View>
       )
-    } else if (action.assetType === 'lottie') {
-      media = <PendingPlayer label="Lottie 动作" />
-    } else if (action.assetType === 'video') {
-      media = <PendingPlayer label="步骤视频" />
+    } else if (action.assetType === 'lottie' || action.assetType === 'video') {
+      const capability = getMediaCapability(action.assetType)
+      media = (
+        <PendingPlayer
+          label={capability?.label ?? action.assetType}
+          description={capability?.description ?? '素材已配置，等待播放器接入。'}
+        />
+      )
     }
   }
 
   return (
-    <View style={styles.frame}>
+    <View style={[styles.frame, { backgroundColor: visual.background }]}>
+      <View style={styles.topLine}>
+        <View style={[styles.actionKeyBadge, { backgroundColor: visual.secondary }]}>
+          <Text style={[styles.actionKeyText, { color: visual.accent }]}>
+            {action?.actionKey ?? 'placeholder'}
+          </Text>
+        </View>
+        <Text style={[styles.motionLabel, { color: visual.accent }]}>{visual.motionLabel}</Text>
+      </View>
+
       <View style={styles.actionBlock}>
         {media}
-        <Text style={styles.actionName}>{action?.zhName ?? '动作示意'}</Text>
+        <Text style={[styles.actionName, { color: visual.accent }]}>
+          {action?.zhName ?? '动作示意'}
+        </Text>
         {action?.shortHint ? <Text style={styles.shortHint}>{action.shortHint}</Text> : null}
       </View>
 
       <Text style={styles.instruction}>{instruction}</Text>
 
       <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+        <View
+          style={[
+            styles.progressFill,
+            {
+              backgroundColor: visual.accent,
+              width: `${Math.round(progress * 100)}%`,
+            },
+          ]}
+        />
       </View>
     </View>
   )
@@ -67,38 +231,256 @@ export function ActionVisual({ action, instruction, progress }: ActionVisualProp
 const styles = StyleSheet.create({
   frame: {
     alignItems: 'center',
-    backgroundColor: COOKING_COLORS.actionSurface,
     borderRadius: COOKING_RADIUS,
     gap: 18,
     justifyContent: 'space-between',
-    minHeight: 350,
+    minHeight: 390,
     overflow: 'hidden',
     paddingBottom: 18,
-    paddingHorizontal: 24,
-    paddingTop: 30,
+    paddingHorizontal: 22,
+    paddingTop: 18,
     width: '100%',
     ...COOKING_SHADOW,
+  },
+  topLine: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  actionKeyBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  actionKeyText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  motionLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'right',
   },
   actionBlock: {
     alignItems: 'center',
     gap: 9,
   },
+  placeholderWrap: {
+    alignItems: 'center',
+    gap: 10,
+  },
   motionRing: {
     alignItems: 'center',
-    borderColor: COOKING_COLORS.accent,
-    borderRadius: 62,
+    borderRadius: 82,
     borderStyle: 'dashed',
     borderWidth: 2,
-    height: 124,
+    height: 164,
     justifyContent: 'center',
-    width: 124,
+    width: 164,
   },
-  icon: {
-    fontSize: 58,
+  glyphStage: {
+    alignItems: 'center',
+    height: 116,
+    justifyContent: 'center',
+    width: 116,
+  },
+  motionIcon: {
+    fontSize: 36,
+  },
+  miniTile: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 48,
+    justifyContent: 'center',
+    position: 'absolute',
+    width: 48,
+  },
+  miniTileLabel: {
+    color: '#4a3930',
+    fontWeight: '900',
+  },
+  waterDrop: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    borderTopLeftRadius: 24,
+    height: 54,
+    transform: [{ rotate: '45deg' }],
+    width: 54,
+  },
+  waterStream: {
+    borderRadius: 999,
+    height: 72,
+    position: 'absolute',
+    right: 28,
+    transform: [{ rotate: '24deg' }],
+    width: 9,
+  },
+  waterStreamSmall: {
+    height: 48,
+    left: 30,
+  },
+  knifeBlade: {
+    borderRadius: 8,
+    height: 14,
+    position: 'absolute',
+    top: 36,
+    transform: [{ rotate: '-28deg' }],
+    width: 82,
+  },
+  knifeHandle: {
+    borderRadius: 8,
+    height: 18,
+    position: 'absolute',
+    right: 20,
+    top: 26,
+    transform: [{ rotate: '-28deg' }],
+    width: 28,
+  },
+  cutBoard: {
+    borderRadius: 18,
+    bottom: 26,
+    height: 45,
+    position: 'absolute',
+    width: 86,
+  },
+  cutPiece: {
+    borderRadius: 9,
+    bottom: 43,
+    height: 18,
+    left: 31,
+    position: 'absolute',
+    width: 18,
+  },
+  bowl: {
+    borderBottomLeftRadius: 38,
+    borderBottomRightRadius: 38,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    borderWidth: 3,
+    bottom: 22,
+    height: 46,
+    position: 'absolute',
+    width: 82,
+  },
+  whiskLine: {
+    borderRadius: 999,
+    height: 80,
+    position: 'absolute',
+    top: 10,
+    width: 7,
+  },
+  pan: {
+    borderRadius: 38,
+    height: 68,
+    position: 'absolute',
+    top: 35,
+    width: 86,
+  },
+  panHandle: {
+    borderRadius: 999,
+    height: 10,
+    position: 'absolute',
+    right: 3,
+    top: 64,
+    width: 38,
+  },
+  flame: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    bottom: 6,
+    height: 34,
+    position: 'absolute',
+    transform: [{ rotate: '45deg' }],
+    width: 28,
+  },
+  flameSmall: {
+    bottom: 12,
+    height: 22,
+    width: 18,
+  },
+  pot: {
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    bottom: 22,
+    height: 58,
+    position: 'absolute',
+    width: 86,
+  },
+  bubble: {
+    borderRadius: 999,
+    height: 14,
+    position: 'absolute',
+    top: 14,
+    width: 14,
+  },
+  bubbleTwo: {
+    left: 29,
+    top: 35,
+  },
+  bubbleThree: {
+    right: 25,
+    top: 42,
+  },
+  plate: {
+    borderRadius: 48,
+    borderWidth: 5,
+    height: 96,
+    position: 'absolute',
+    width: 96,
+  },
+  foodBlob: {
+    borderRadius: 22,
+    height: 44,
+    position: 'absolute',
+    width: 58,
+  },
+  foodBlobSmall: {
+    height: 24,
+    right: 32,
+    top: 34,
+    width: 30,
+  },
+  stirPan: {
+    alignItems: 'center',
+    borderRadius: 48,
+    borderWidth: 4,
+    height: 96,
+    justifyContent: 'center',
+    width: 96,
+  },
+  stirSwoosh: {
+    borderLeftWidth: 4,
+    borderRadius: 36,
+    borderTopWidth: 4,
+    height: 64,
+    position: 'absolute',
+    transform: [{ rotate: '38deg' }],
+    width: 64,
+  },
+  stirSwooshTwo: {
+    height: 88,
+    opacity: 0.45,
+    transform: [{ rotate: '-18deg' }],
+    width: 88,
+  },
+  gesturePill: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  gesturePillText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '900',
   },
   actionName: {
-    color: COOKING_COLORS.accent,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
   },
   shortHint: {
@@ -110,10 +492,10 @@ const styles = StyleSheet.create({
   },
   mediaFrame: {
     borderRadius: COOKING_RADIUS,
-    height: 170,
+    height: 190,
     maxWidth: '100%',
     overflow: 'hidden',
-    width: 300,
+    width: 320,
   },
   image: {
     height: '100%',
@@ -121,10 +503,10 @@ const styles = StyleSheet.create({
   },
   pendingPlayer: {
     alignItems: 'center',
-    height: 150,
+    height: 170,
     justifyContent: 'center',
     maxWidth: '100%',
-    width: 300,
+    width: 320,
   },
   pendingTitle: {
     color: COOKING_COLORS.text,
@@ -135,6 +517,7 @@ const styles = StyleSheet.create({
     color: COOKING_COLORS.mutedText,
     lineHeight: 19,
     marginTop: 6,
+    maxWidth: 300,
     textAlign: 'center',
   },
   instruction: {
@@ -153,7 +536,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   progressFill: {
-    backgroundColor: COOKING_COLORS.accent,
     borderRadius: 3,
     height: '100%',
   },
