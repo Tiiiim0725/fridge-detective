@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -82,6 +83,27 @@ function Section({
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {children}
+    </View>
+  )
+}
+
+function RecipeHeroImage({ imageUrl }: { imageUrl: string | null }) {
+  if (!imageUrl) {
+    return (
+      <View style={styles.heroIcon}>
+        <Ionicons name="restaurant-outline" size={30} color="#fff8f1" />
+      </View>
+    )
+  }
+
+  return (
+    <View style={styles.heroImageFrame}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.heroImage}
+        contentFit="contain"
+        transition={180}
+      />
     </View>
   )
 }
@@ -172,9 +194,7 @@ export default function RecipeDetailScreen() {
       {status === 'success' && detail ? (
         <>
           <View style={styles.hero}>
-            <View style={styles.heroIcon}>
-              <Ionicons name="restaurant-outline" size={30} color="#fff8f1" />
-            </View>
+            <RecipeHeroImage imageUrl={detail.recipe.coverImageUrl ?? detail.recipe.cardImageUrl} />
             <Text style={styles.recipeName}>{detail.recipe.zhName}</Text>
             {detail.recipe.enName ? (
               <Text style={styles.recipeSubtitle}>{detail.recipe.enName}</Text>
@@ -396,6 +416,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     width: 50,
+  },
+  heroImageFrame: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    aspectRatio: 1,
+    backgroundColor: '#fff7ec',
+    borderColor: '#ead8c5',
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    maxWidth: 320,
+    overflow: 'hidden',
+    width: '72%',
+  },
+  heroImage: {
+    height: '94%',
+    width: '94%',
   },
   recipeName: {
     color: '#2e2924',

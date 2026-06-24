@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
+import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useRef, useState } from 'react'
 import {
@@ -76,6 +77,23 @@ function RecipeImagePlaceholder() {
   )
 }
 
+function RecipeCardImage({ imageUrl }: { imageUrl: string | null }) {
+  if (!imageUrl) {
+    return <RecipeImagePlaceholder />
+  }
+
+  return (
+    <View style={styles.recipeImageFrame}>
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.recipeImage}
+        contentFit="contain"
+        transition={160}
+      />
+    </View>
+  )
+}
+
 function RecipeCard({
   item,
   rank,
@@ -87,6 +105,7 @@ function RecipeCard({
 }) {
   const router = useRouter()
   const hasMissingCore = item.missingCoreIngredients.length > 0
+  const imageUrl = item.recipe.cardImageUrl ?? item.recipe.coverImageUrl
 
   return (
     <Pressable
@@ -100,7 +119,7 @@ function RecipeCard({
       ]}
     >
       <View style={styles.cardImageRow}>
-        <RecipeImagePlaceholder />
+        <RecipeCardImage imageUrl={imageUrl} />
         <View style={styles.cardImageCopy}>
           <Text style={styles.cardImageTitle}>今晚候选</Text>
           <Text style={styles.cardImageText}>根据当前库存和口味排序。</Text>
@@ -557,6 +576,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     width: 54,
+  },
+  recipeImageFrame: {
+    alignItems: 'center',
+    aspectRatio: 1,
+    backgroundColor: '#fff7ec',
+    borderColor: '#ead8c5',
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 72,
+  },
+  recipeImage: {
+    height: '94%',
+    width: '94%',
   },
   cardImageCopy: {
     flex: 1,
