@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
-import { useEffect, useMemo, useState, type ComponentProps } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -102,9 +102,52 @@ export function CookingAssistantPanel({
     context.stepTitle,
   ])
 
+  const speakAnswer = useCallback(async (result: AskCookingHelperResult | null) => {
+    if (!result?.answerText.trim()) return
+
+    setError(null)
+    setAnswerSpeaking(true)
+
+    try {
+      await speakCookingText(result.answerText)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setAnswerSpeaking(false)
+    }
+  }, [])
+
+  const submitVoiceQuestion = useCallback(async (transcript: string) => {
+    const trimmedTranscript = transcript.trim()
+    if (!trimmedTranscript || disabled) return
+
+    setLoading(true)
+    setError(null)
+    setAnswerSpeaking(false)
+    void stopCookingSpeech()
+
+    try {
+      const result = await askCookingHelper({
+        ...context,
+        answerType: 'voice',
+        questionText: trimmedTranscript,
+        questionImageUrl: null,
+      })
+      setAnswer(result)
+      void speakAnswer(result)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setLoading(false)
+    }
+  }, [context, disabled, speakAnswer])
+
   const voiceAssistant = useCookingVoiceAssistant({
     contextualStrings: voiceContextualStrings,
     disabled: disabled || loading,
+    onAutoSubmit: (transcript) => {
+      void submitVoiceQuestion(transcript)
+    },
     onTranscriptChange: setVoiceTranscript,
   })
 
@@ -144,21 +187,6 @@ export function CookingAssistantPanel({
     }
   }
 
-  async function speakAnswer(result: AskCookingHelperResult | null) {
-    if (!result?.answerText.trim()) return
-
-    setError(null)
-    setAnswerSpeaking(true)
-
-    try {
-      await speakCookingText(result.answerText)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
-    } finally {
-      setAnswerSpeaking(false)
-    }
-  }
-
   async function stopAnswerSpeech() {
     setError(null)
     await stopCookingSpeech()
@@ -166,6 +194,11 @@ export function CookingAssistantPanel({
   }
 
   async function submitQuestion() {
+    if (mode === 'voice') {
+      await submitVoiceQuestion(voiceTranscript)
+      return
+    }
+
     setLoading(true)
     setError(null)
     setAnswerSpeaking(false)
@@ -187,15 +220,10 @@ export function CookingAssistantPanel({
         answerType: mode,
         questionText: mode === 'text'
           ? textQuestion
-          : mode === 'voice'
-            ? voiceTranscript
-            : photoQuestion || DEFAULT_PHOTO_QUESTION,
+          : photoQuestion || DEFAULT_PHOTO_QUESTION,
         questionImageUrl: mode === 'photo' ? imageUrl : null,
       })
       setAnswer(result)
-      if (mode === 'voice') {
-        void speakAnswer(result)
-      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
@@ -207,7 +235,11 @@ export function CookingAssistantPanel({
     && !loading
     && (
       (mode === 'text' && textQuestion.trim().length > 0)
-      || (mode === 'voice' && voiceTranscript.trim().length > 0)
+      || (
+        mode === 'voice'
+        && voiceAssistant.status !== 'listening'
+        && voiceTranscript.trim().length > 0
+      )
       || (mode === 'photo' && (pickedPhoto !== null || imageUrl.trim().length > 0))
     )
 
