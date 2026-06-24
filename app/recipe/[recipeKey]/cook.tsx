@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { CookingAssistantPanel } from '@/components/cooking/CookingAssistantPanel'
 import { CookingSpeechControls } from '@/components/cooking/CookingSpeechControls'
+import { CookingStepTimer } from '@/components/cooking/CookingStepTimer'
 import { TutorialStepCard } from '@/components/cooking/TutorialStepCard'
 import {
   COOKING_COLORS,
@@ -247,6 +248,12 @@ export default function CookingTutorialScreen() {
             totalSteps={bundle.steps.length}
             stepTitle={currentStep.title}
             stepBody={currentStep.body}
+            disabled={dataSource !== 'supabase'}
+          />
+
+          <CookingStepTimer
+            stepNumber={currentStep.stepNumber}
+            timerSeconds={currentStep.timerSeconds}
             disabled={dataSource !== 'supabase'}
           />
 
