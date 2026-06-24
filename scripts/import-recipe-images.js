@@ -169,20 +169,10 @@ async function main() {
       throw new Error(`Upload failed for ${item.fileName}: ${uploadError.message}`)
     }
 
-    const { error: updateError } = await supabase
-      .from('recipes')
-      .update({
-        card_image_url: item.imageUrl,
-        cover_image_url: item.imageUrl,
-      })
-      .eq('recipe_key', item.recipeKey)
-
-    if (updateError) {
-      throw new Error(`Recipe update failed for ${item.recipeKey}: ${updateError.message}`)
-    }
-
     console.log(`${index}/${matched.length} ${item.zhName} -> ${item.objectPath}`)
   }
+
+  console.log('Upload finished. Run supabase db query --linked -f supabase/.temp/recipe-image-import/update-recipe-image-urls.sql to update recipe image URLs.')
 }
 
 main().catch((error) => {
