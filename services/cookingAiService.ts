@@ -97,6 +97,7 @@ export async function askCookingHelper(
     .insert({
       user_id: authUser.userId,
       session_id: input.sessionId ?? null,
+      question_photo_id: input.questionPhotoId ?? null,
       recipe_id: input.recipeId,
       step_number: input.stepNumber,
       question_text: questionText,
