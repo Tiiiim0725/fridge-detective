@@ -1,6 +1,6 @@
 export type CookingVoiceStopReason = 'manual' | 'silence' | 'noSpeech' | 'maxDuration' | 'error'
 
-export const COOKING_VOICE_ACTIVITY_THRESHOLD = 0
+export const COOKING_VOICE_ACTIVITY_THRESHOLD = 0.18
 export const COOKING_VOICE_SILENCE_TIMEOUT_MS = 4_000
 export const COOKING_VOICE_NO_SPEECH_TIMEOUT_MS = 8_000
 export const COOKING_VOICE_MAX_DURATION_MS = 30_000
@@ -13,7 +13,7 @@ export type CookingVoiceActivityTiming = {
 }
 
 export function isAudibleCookingVoiceVolume(value: number): boolean {
-  return Number.isFinite(value) && value >= COOKING_VOICE_ACTIVITY_THRESHOLD
+  return Number.isFinite(value) && normalizeCookingVoiceVolume(value) >= COOKING_VOICE_ACTIVITY_THRESHOLD
 }
 
 export function normalizeCookingVoiceVolume(value: number): number {

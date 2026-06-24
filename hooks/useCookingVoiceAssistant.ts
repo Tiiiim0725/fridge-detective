@@ -27,12 +27,14 @@ export type CookingVoiceAssistantStatus =
 type UseCookingVoiceAssistantInput = {
   contextualStrings: string[]
   disabled?: boolean
+  onAutoSubmit?: (transcript: string, reason: CookingVoiceStopReason) => void
   onTranscriptChange: (transcript: string) => void
 }
 
 export function useCookingVoiceAssistant({
   contextualStrings,
   disabled,
+  onAutoSubmit,
   onTranscriptChange,
 }: UseCookingVoiceAssistantInput) {
   const [status, setStatus] = useState<CookingVoiceAssistantStatus>('idle')
@@ -89,12 +91,17 @@ export function useCookingVoiceAssistant({
 
     if (transcript) {
       onTranscriptChange(transcript)
-      setMessage(reason === 'silence' ? '检测到停顿，已把你说的话填入输入框。' : null)
+      if (reason === 'silence') {
+        setMessage('检测到停顿，正在把这句话发给 AI。')
+        onAutoSubmit?.(transcript, reason)
+      } else {
+        setMessage(null)
+      }
     } else if (reason === 'noSpeech') {
       setMessage('这次没有听到清楚的话，可以直接打字模拟。')
       setStatus('simulated')
     }
-  }, [clearIntervalRef, onTranscriptChange])
+  }, [clearIntervalRef, onAutoSubmit, onTranscriptChange])
 
   const startWatchdog = useCallback(() => {
     clearIntervalRef()
@@ -113,6 +120,9 @@ export function useCookingVoiceAssistant({
   const handleResult = useCallback((event: ExpoSpeechRecognitionResultEvent) => {
     const transcript = event.results[0]?.transcript?.trim() ?? ''
     if (!transcript) return
+
+    speechDetectedRef.current = true
+    lastActivityAtRef.current = Date.now()
 
     if (event.isFinal) {
       finalTranscriptRef.current = transcript
