@@ -11,6 +11,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { CookingAssistantPanel } from '@/components/cooking/CookingAssistantPanel'
 import { TutorialStepCard } from '@/components/cooking/TutorialStepCard'
 import {
   COOKING_COLORS,
@@ -237,6 +238,22 @@ export default function CookingTutorialScreen() {
             totalSteps={bundle.steps.length}
             totalMinutes={bundle.recipe.totalTimeMinutes}
             recipeName={bundle.recipe.zhName}
+          />
+
+          <CookingAssistantPanel
+            context={{
+              sessionId,
+              recipeId: bundle.recipe.id,
+              recipeKey: bundle.recipe.recipeKey,
+              recipeTitle: bundle.recipe.zhName,
+              stepNumber: currentStep.stepNumber,
+              stepTitle: currentStep.title,
+              stepBody: currentStep.body,
+              assistantContext: currentStep.assistantContext,
+              ingredientKeys: currentStep.ingredientKeys,
+              equipmentKeys: currentStep.equipmentKeys,
+            }}
+            disabled={dataSource !== 'supabase' || !sessionId}
           />
 
           {message ? (
