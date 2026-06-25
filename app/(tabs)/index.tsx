@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  PanResponder,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -22,19 +23,40 @@ import type {
 
 type LoadStatus = 'idle' | 'loading' | 'success' | 'error'
 
+type OrbitDish = {
+  item: RecipeRecommendationResult
+  slot: -1 | 0 | 1
+}
+
+const PHONE_CANVAS_WIDTH = 430
+const PHONE_CANVAS_MIN_HEIGHT = 900
+const ORBIT_DRAG_DISTANCE = 210
+const ORBIT_SIDE_X = 238
+const ORBIT_SIDE_Y = 104
+const ORBIT_SIDE_ROTATION = 15
+const ORBIT_RELEASE_THRESHOLD = 0.34
+
 const difficultyLabels: Record<string, string> = {
   beginner: '新手',
   normal: '普通',
   confident: '熟练',
+  easy: '简单',
+  medium: '适中',
+  hard: '进阶',
 }
 
 const cuisineLabels: Record<string, string> = {
-  chinese_home: '中式家常',
-  western_simple: '西餐简餐',
+  chinese_home: '家常中餐',
+  western_simple: '西式简餐',
   shandong: '鲁菜',
   sichuan: '川菜',
   cantonese: '粤菜',
   huaiyang: '淮扬菜',
+  chinese: '中餐',
+  western: '西餐',
+  korean: '韩式',
+  japanese: '日式',
+  fusion: '融合',
 }
 
 function formatIngredientNames(keys: string[], ingredientNameByKey: Map<string, string>, emptyText: string) {
@@ -69,130 +91,88 @@ function formatRecommendationReason(reason: string, ingredientNameByKey: Map<str
   return names.length > 0 ? `${prefix} ${names.join('、')}` : prefix
 }
 
-function RecipeImagePlaceholder() {
-  return (
-    <View style={styles.imagePlaceholder}>
-      <Ionicons name="restaurant-outline" size={24} color="#fff8f1" />
-    </View>
-  )
+function recipeImageUrl(item: RecipeRecommendationResult | null) {
+  return item?.recipe.cardImageUrl ?? item?.recipe.coverImageUrl ?? null
 }
 
-function RecipeCardImage({ imageUrl }: { imageUrl: string | null }) {
+function loopIndex(index: number, length: number) {
+  if (length === 0) {
+    return 0
+  }
+
+  return ((index % length) + length) % length
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function getOrbitPlateTransform(slot: -1 | 0 | 1, dragProgress: number) {
+  const position = slot + dragProgress
+  const clampedPosition = clamp(position, -1.45, 1.45)
+  const absPosition = Math.abs(clampedPosition)
+  const sideWeight = Math.min(absPosition, 1)
+  const edgeFade = Math.max(0, absPosition - 1)
+
+  return {
+    opacity: clamp(1 - edgeFade * 1.7, 0.1, 1),
+    zIndex: Math.round(20 - absPosition * 8),
+    transform: [
+      { translateX: clampedPosition * ORBIT_SIDE_X },
+      { translateY: sideWeight * ORBIT_SIDE_Y + edgeFade * 56 },
+      { rotate: `${clampedPosition * ORBIT_SIDE_ROTATION}deg` },
+      { scale: 1 - sideWeight * 0.36 - edgeFade * 0.1 },
+    ],
+  }
+}
+
+function DishImage({
+  imageUrl,
+  size,
+  iconSize,
+}: {
+  imageUrl: string | null
+  size: number
+  iconSize: number
+}) {
   if (!imageUrl) {
-    return <RecipeImagePlaceholder />
+    return (
+      <View style={[styles.dishPlaceholder, { width: size, height: size, borderRadius: size / 2 }]}>
+        <Ionicons name="restaurant-outline" size={iconSize} color="#fff8f1" />
+      </View>
+    )
   }
 
   return (
-    <View style={styles.recipeImageFrame}>
-      <Image
-        source={{ uri: imageUrl }}
-        style={styles.recipeImage}
-        contentFit="contain"
-        transition={160}
-      />
-    </View>
+    <Image
+      source={{ uri: imageUrl }}
+      style={{ width: size, height: size }}
+      contentFit="contain"
+      pointerEvents="none"
+      transition={180}
+    />
   )
 }
 
-function RecipeCard({
-  item,
-  rank,
-  ingredientNameByKey,
+function CornerMetric({
+  iconName,
+  label,
+  value,
 }: {
-  item: RecipeRecommendationResult
-  rank: number
-  ingredientNameByKey: Map<string, string>
+  iconName: keyof typeof Ionicons.glyphMap
+  label: string
+  value: string
 }) {
-  const router = useRouter()
-  const hasMissingCore = item.missingCoreIngredients.length > 0
-  const imageUrl = item.recipe.cardImageUrl ?? item.recipe.coverImageUrl
-
   return (
-    <Pressable
-      onPress={() => router.push({
-        pathname: '/recipe/[recipeKey]',
-        params: { recipeKey: item.recipe.recipeKey },
-      })}
-      style={({ pressed }) => [
-        styles.recipeCard,
-        pressed && styles.recipeCardPressed,
-      ]}
-    >
-      <View style={styles.cardImageRow}>
-        <RecipeCardImage imageUrl={imageUrl} />
-        <View style={styles.cardImageCopy}>
-          <Text style={styles.cardImageTitle}>今晚候选</Text>
-          <Text style={styles.cardImageText}>根据当前库存和口味排序。</Text>
-        </View>
+    <View style={styles.cornerMetric}>
+      <View style={styles.cornerIcon}>
+        <Ionicons name={iconName} size={16} color="#8c4b25" />
       </View>
-
-      <View style={styles.cardTopRow}>
-        <View style={styles.rankBadge}>
-          <Text style={styles.rankText}>{rank}</Text>
-        </View>
-        <View style={styles.recipeTitleGroup}>
-          <Text style={styles.recipeName}>{item.recipe.zhName}</Text>
-          {item.recipe.enName ? (
-            <Text style={styles.recipeSubtitle}>{item.recipe.enName}</Text>
-          ) : null}
-        </View>
-        <View style={styles.scorePill}>
-          <Text style={styles.scoreText}>{item.score}</Text>
-        </View>
+      <View style={styles.cornerMetricCopy}>
+        <Text style={styles.cornerMetricLabel}>{label}</Text>
+        <Text style={styles.cornerMetricValue} numberOfLines={1}>{value}</Text>
       </View>
-
-      <View style={styles.metaRow}>
-        <View style={styles.metaPill}>
-          <Ionicons name="time-outline" size={14} color="#5d4736" />
-          <Text style={styles.metaText}>{item.recipe.totalTimeMinutes} 分钟</Text>
-        </View>
-        <View style={styles.metaPill}>
-          <Ionicons name="flame-outline" size={14} color="#5d4736" />
-          <Text style={styles.metaText}>
-            {difficultyLabels[item.recipe.difficultyKey] ?? item.recipe.difficultyKey}
-          </Text>
-        </View>
-        <View style={styles.metaPill}>
-          <Ionicons name="restaurant-outline" size={14} color="#5d4736" />
-          <Text style={styles.metaText}>
-            {cuisineLabels[item.recipe.cuisineKey] ?? item.recipe.cuisineKey}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.matchPanel}>
-        <View style={styles.matchLine}>
-          <Ionicons name="checkmark-circle-outline" size={16} color="#24745a" />
-          <Text style={styles.matchText}>
-            已有核心：{formatIngredientNames(item.matchedCoreIngredients, ingredientNameByKey, '暂无')}
-          </Text>
-        </View>
-        <View style={styles.matchLine}>
-          <Ionicons name="leaf-outline" size={16} color="#24745a" />
-          <Text style={styles.matchText}>
-            已有常备：{formatIngredientNames(item.matchedPantryItems, ingredientNameByKey, '暂无')}
-          </Text>
-        </View>
-        {hasMissingCore ? (
-          <View style={styles.warningLine}>
-            <Ionicons name="alert-circle-outline" size={16} color="#a7562a" />
-            <Text style={styles.warningText}>
-              还差核心：{formatIngredientNames(item.missingCoreIngredients, ingredientNameByKey, '暂不确定')}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {item.reasons.length > 0 ? (
-        <View style={styles.reasonWrap}>
-          {item.reasons.slice(0, 3).map((reason) => (
-            <Text key={reason} style={styles.reasonChip}>
-              {formatRecommendationReason(reason, ingredientNameByKey)}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-    </Pressable>
+    </View>
   )
 }
 
@@ -204,6 +184,8 @@ export default function HomeScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [ingredientNameByKey, setIngredientNameByKey] = useState<Map<string, string>>(new Map())
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [dragProgress, setDragProgress] = useState(0)
   const hasLoadedOnceRef = useRef(false)
 
   const loadRecommendations = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -224,6 +206,7 @@ export default function HomeScreen() {
         ingredient.zhName,
       ])))
       setRunResult(result)
+      setActiveIndex(0)
       setStatus('success')
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : String(error))
@@ -241,6 +224,76 @@ export default function HomeScreen() {
   )
 
   const recommendations = runResult?.recommendations ?? []
+  const currentIndex = loopIndex(activeIndex, recommendations.length)
+  const currentItem = recommendations[currentIndex] ?? null
+  const orbitDishes = useMemo<OrbitDish[]>(() => {
+    if (recommendations.length === 0) {
+      return []
+    }
+
+    const slots: Array<-1 | 0 | 1> = recommendations.length === 1 ? [0] : [-1, 0, 1]
+    const seenRecipeKeys = new Set<string>()
+
+    return slots
+      .map((slot) => ({
+        slot,
+        item: recommendations[loopIndex(currentIndex + slot, recommendations.length)],
+      }))
+      .filter((dish) => {
+        if (seenRecipeKeys.has(dish.item.recipe.recipeKey)) {
+          return false
+        }
+        seenRecipeKeys.add(dish.item.recipe.recipeKey)
+        return true
+      })
+  }, [currentIndex, recommendations])
+  const currentReason = currentItem?.reasons[0]
+    ? formatRecommendationReason(currentItem.reasons[0], ingredientNameByKey)
+    : '根据你的冰箱和偏好排序'
+
+  const goPrevious = useCallback(() => {
+    setDragProgress(0)
+    setActiveIndex((index) => loopIndex(index - 1, recommendations.length))
+  }, [recommendations.length])
+
+  const goNext = useCallback(() => {
+    setDragProgress(0)
+    setActiveIndex((index) => loopIndex(index + 1, recommendations.length))
+  }, [recommendations.length])
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onPanResponderGrant: () => {
+      setDragProgress(0)
+    },
+    onMoveShouldSetPanResponder: (_event, gestureState) => (
+      recommendations.length > 1
+      && Math.abs(gestureState.dx) > 18
+      && Math.abs(gestureState.dx) > Math.abs(gestureState.dy)
+    ),
+    onPanResponderMove: (_event, gestureState) => {
+      if (recommendations.length <= 1) {
+        return
+      }
+
+      setDragProgress(clamp(gestureState.dx / ORBIT_DRAG_DISTANCE, -1, 1))
+    },
+    onPanResponderRelease: (_event, gestureState) => {
+      const releaseProgress = clamp(gestureState.dx / ORBIT_DRAG_DISTANCE, -1, 1)
+      const shouldGoNext = releaseProgress < -ORBIT_RELEASE_THRESHOLD || gestureState.vx < -0.55
+      const shouldGoPrevious = releaseProgress > ORBIT_RELEASE_THRESHOLD || gestureState.vx > 0.55
+
+      if (shouldGoNext) {
+        goNext()
+      } else if (shouldGoPrevious) {
+        goPrevious()
+      } else {
+        setDragProgress(0)
+      }
+    },
+    onPanResponderTerminate: () => {
+      setDragProgress(0)
+    },
+  }), [goNext, goPrevious, recommendations.length])
 
   return (
     <ScrollView
@@ -254,77 +307,42 @@ export default function HomeScreen() {
         />
       }
     >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.eyebrow}>冰箱侦探</Text>
-          <Text style={styles.title}>今晚可以做什么</Text>
-          <Text style={styles.subtitle}>根据你的口味、常备调料和冰箱库存生成 Top 8 推荐。</Text>
-        </View>
+      <View style={styles.topBar}>
         <Pressable
           accessibilityLabel="刷新推荐"
           onPress={() => loadRecommendations('refresh')}
           style={({ pressed }) => [
-            styles.refreshButton,
-            pressed && styles.refreshButtonPressed,
+            styles.topIconButton,
+            pressed && styles.topIconButtonPressed,
           ]}
         >
-          <Ionicons name="refresh-outline" size={22} color="#fff8f1" />
+          <Ionicons name="refresh-outline" size={21} color="#2f2923" />
+        </Pressable>
+        <Text style={styles.topKicker}>冰箱侦探</Text>
+        <Pressable
+          accessibilityLabel="拍照更新冰箱"
+          onPress={() => router.push('/fridge-scan')}
+          style={({ pressed }) => [
+            styles.topIconButton,
+            pressed && styles.topIconButtonPressed,
+          ]}
+        >
+          <Ionicons name="camera-outline" size={21} color="#2f2923" />
         </Pressable>
       </View>
 
       {fridgeUpdated === '1' ? (
         <View style={styles.updateNotice}>
-          <Ionicons name="checkmark-circle" size={20} color="#34785c" />
+          <Ionicons name="checkmark-circle" size={19} color="#34785c" />
           <Text style={styles.updateNoticeText}>冰箱已更新，推荐已根据最新库存刷新。</Text>
         </View>
       ) : null}
 
-      {runResult ? (
-        <View style={styles.summaryBand}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{runResult.totalCandidates}</Text>
-            <Text style={styles.summaryLabel}>菜品库</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{runResult.eligibleCandidates}</Text>
-            <Text style={styles.summaryLabel}>可推荐</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{runResult.filteredCandidates}</Text>
-            <Text style={styles.summaryLabel}>已过滤</Text>
-          </View>
-        </View>
-      ) : null}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="拍照更新冰箱"
-        onPress={() => router.push('/fridge-scan')}
-        style={({ pressed }) => [
-          styles.fridgePrompt,
-          pressed && styles.fridgePromptPressed,
-        ]}
-      >
-        <View style={styles.fridgePromptIcon}>
-          <Ionicons name="camera-outline" size={22} color="#fff8f1" />
-        </View>
-        <View style={styles.fridgePromptCopy}>
-          <Text style={styles.fridgePromptTitle}>拍一下冰箱，推荐会更准</Text>
-          <Text style={styles.fridgePromptText}>拍清主要食材，确认后会自动刷新推荐。</Text>
-        </View>
-        <View style={styles.fridgePromptAction}>
-          <Text style={styles.fridgePromptActionText}>去更新</Text>
-          <Ionicons name="chevron-forward" size={15} color="#8f4b25" />
-        </View>
-      </Pressable>
-
       {status === 'loading' ? (
         <View style={styles.statePanel}>
           <ActivityIndicator color="#b76432" />
-          <Text style={styles.stateTitle}>正在读取推荐</Text>
-          <Text style={styles.stateText}>正在组合你的偏好、常备调料、冰箱库存和 200 道菜品。</Text>
+          <Text style={styles.stateTitle}>正在准备今晚的候选</Text>
+          <Text style={styles.stateText}>我在结合你的口味、常备调料和冰箱库存。</Text>
         </View>
       ) : null}
 
@@ -350,16 +368,144 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {recommendations.length > 0 ? (
-        <View style={styles.recipeList}>
-          {recommendations.map((item, index) => (
-            <RecipeCard
-              key={item.recipe.recipeKey}
-              item={item}
-              rank={index + 1}
-              ingredientNameByKey={ingredientNameByKey}
+      {currentItem ? (
+        <View style={styles.showcase} {...panResponder.panHandlers}>
+          <View style={styles.cornerTopLeft}>
+            <Text style={styles.kicker}>今晚可以做</Text>
+            <Text style={styles.currentRecipeName} numberOfLines={2}>
+              {currentItem.recipe.zhName}
+            </Text>
+          </View>
+
+          <View style={styles.cornerTopRight}>
+            <CornerMetric
+              iconName="time-outline"
+              label="预计"
+              value={`${currentItem.recipe.totalTimeMinutes} 分钟`}
             />
-          ))}
+          </View>
+
+          <View style={styles.cornerBottomLeft}>
+            <CornerMetric
+              iconName="checkmark-circle-outline"
+              label="已有核心"
+              value={formatIngredientNames(
+                currentItem.matchedCoreIngredients.slice(0, 2),
+                ingredientNameByKey,
+                '待补齐'
+              )}
+            />
+          </View>
+
+          <View style={styles.cornerBottomRight}>
+            <CornerMetric
+              iconName="sparkles-outline"
+              label="匹配"
+              value={`${Math.round(currentItem.score)} 分`}
+            />
+          </View>
+
+          <View style={styles.orbitStage}>
+            <View style={styles.placemat} />
+            {orbitDishes.map((dish) => {
+              const isCenterSlot = dish.slot === 0
+              const imageSize = isCenterSlot ? 286 : 274
+
+              return (
+                <Pressable
+                  key={`${dish.slot}-${dish.item.recipe.recipeKey}`}
+                  accessibilityLabel={isCenterSlot ? '打开当前菜谱详情' : '拖动或点击切换推荐'}
+                  onPress={() => {
+                    if (dish.slot === -1) {
+                      goPrevious()
+                      return
+                    }
+
+                    if (dish.slot === 1) {
+                      goNext()
+                      return
+                    }
+
+                    router.push({
+                      pathname: '/recipe/[recipeKey]',
+                      params: { recipeKey: dish.item.recipe.recipeKey },
+                    })
+                  }}
+                  style={({ pressed }) => [
+                    styles.orbitPlate,
+                    getOrbitPlateTransform(dish.slot, dragProgress),
+                    pressed && styles.orbitPlatePressed,
+                  ]}
+                >
+                  <DishImage imageUrl={recipeImageUrl(dish.item)} size={imageSize} iconSize={isCenterSlot ? 42 : 34} />
+                </Pressable>
+              )
+            })}
+
+            <View style={styles.orbitHint}>
+              <Ionicons name="chevron-back" size={15} color="#766a60" />
+              <Text style={styles.orbitHintText}>按住拖动换一道</Text>
+              <Ionicons name="chevron-forward" size={15} color="#766a60" />
+            </View>
+          </View>
+
+          <View style={styles.recipeCopyPanel}>
+            <Text style={styles.recipeReason} numberOfLines={2}>{currentReason}</Text>
+            <View style={styles.detailPillRow}>
+              <View style={styles.detailPill}>
+                <Ionicons name="flame-outline" size={14} color="#7e4423" />
+                <Text style={styles.detailPillText}>
+                  {difficultyLabels[currentItem.recipe.difficultyKey] ?? currentItem.recipe.difficultyKey}
+                </Text>
+              </View>
+              <View style={styles.detailPill}>
+                <Ionicons name="restaurant-outline" size={14} color="#7e4423" />
+                <Text style={styles.detailPillText}>
+                  {cuisineLabels[currentItem.recipe.cuisineKey] ?? currentItem.recipe.cuisineKey}
+                </Text>
+              </View>
+              {currentItem.missingCoreIngredients.length > 0 ? (
+                <View style={styles.detailPillWarning}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#9c552c" />
+                  <Text style={styles.detailPillWarningText}>
+                    缺 {formatIngredientNames(currentItem.missingCoreIngredients.slice(0, 1), ingredientNameByKey, '少量食材')}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.actionRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="查看菜谱详情"
+              onPress={() => router.push({
+                pathname: '/recipe/[recipeKey]',
+                params: { recipeKey: currentItem.recipe.recipeKey },
+              })}
+              style={({ pressed }) => [
+                styles.primaryAction,
+                pressed && styles.primaryActionPressed,
+              ]}
+            >
+              <Text style={styles.primaryActionText}>查看做法</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff8f1" />
+            </Pressable>
+          </View>
+
+          <View style={styles.dots}>
+            {recommendations.map((item, index) => (
+              <Pressable
+                key={item.recipe.recipeKey}
+                accessibilityLabel={`切换到第 ${index + 1} 道推荐`}
+                onPress={() => setActiveIndex(index)}
+                style={[
+                  styles.dot,
+                  index === currentIndex && styles.dotActive,
+                ]}
+              />
+            ))}
+          </View>
         </View>
       ) : null}
     </ScrollView>
@@ -369,91 +515,77 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#f8f3ec',
+    backgroundColor: '#e7ded3',
   },
   content: {
-    gap: 18,
+    alignSelf: 'center',
+    backgroundColor: '#f6efe7',
+    maxWidth: PHONE_CANVAS_WIDTH,
+    minHeight: PHONE_CANVAS_MIN_HEIGHT,
     padding: 18,
     paddingBottom: 34,
+    width: '100%',
   },
-  header: {
-    alignItems: 'flex-start',
+  topBar: {
+    alignItems: 'center',
     flexDirection: 'row',
-    gap: 14,
     justifyContent: 'space-between',
-    paddingTop: 12,
+    paddingTop: 10,
   },
-  eyebrow: {
-    color: '#9a5a30',
+  topKicker: {
+    color: '#8b4b25',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  topIconButton: {
+    alignItems: 'center',
+    backgroundColor: '#fff8f0',
+    borderColor: '#eadbc9',
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: 'center',
+    shadowColor: '#6f4d35',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    width: 44,
+  },
+  topIconButtonPressed: {
+    backgroundColor: '#efe2d5',
+  },
+  updateNotice: {
+    alignItems: 'center',
+    backgroundColor: '#edf7f1',
+    borderColor: '#c6dfd1',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  updateNoticeText: {
+    color: '#285f49',
+    flex: 1,
     fontSize: 13,
     fontWeight: '700',
-  },
-  title: {
-    color: '#2f2923',
-    fontSize: 31,
-    fontWeight: '800',
-    letterSpacing: 0,
-    lineHeight: 38,
-    marginTop: 4,
-  },
-  subtitle: {
-    color: '#6d6258',
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 6,
-    maxWidth: 560,
-  },
-  refreshButton: {
-    alignItems: 'center',
-    aspectRatio: 1,
-    backgroundColor: '#b76432',
-    borderRadius: 8,
-    justifyContent: 'center',
-    width: 46,
-  },
-  refreshButtonPressed: {
-    backgroundColor: '#945128',
-  },
-  summaryBand: {
-    alignItems: 'center',
-    backgroundColor: '#2f493e',
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-  },
-  summaryItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  summaryValue: {
-    color: '#fff8f1',
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  summaryLabel: {
-    color: '#d8eadf',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  summaryDivider: {
-    backgroundColor: '#6e8a7c',
-    height: 32,
-    width: 1,
+    lineHeight: 18,
   },
   statePanel: {
     alignItems: 'center',
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 8,
+    borderRadius: 22,
     borderWidth: 1,
     gap: 8,
+    marginTop: 34,
     padding: 20,
   },
   errorPanel: {
-    borderColor: '#dfb2a5',
     backgroundColor: '#fff6f2',
+    borderColor: '#dfb2a5',
   },
   stateTitle: {
     color: '#342e28',
@@ -468,7 +600,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: '#b76432',
-    borderRadius: 8,
+    borderRadius: 22,
     marginTop: 4,
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -481,240 +613,246 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  fridgePrompt: {
-    alignItems: 'center',
-    backgroundColor: '#fffaf3',
-    borderColor: '#eadfd2',
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    padding: 14,
-  },
-  fridgePromptPressed: {
-    backgroundColor: '#f7ecdf',
-  },
-  fridgePromptIcon: {
-    alignItems: 'center',
-    aspectRatio: 1,
-    backgroundColor: '#b76432',
-    borderRadius: 8,
-    justifyContent: 'center',
-    width: 42,
-  },
-  fridgePromptCopy: {
+  showcase: {
     flex: 1,
-    minWidth: 0,
+    minHeight: 760,
+    paddingTop: 24,
   },
-  fridgePromptTitle: {
-    color: '#2f2a25',
-    fontSize: 15,
+  cornerTopLeft: {
+    left: 0,
+    maxWidth: '64%',
+    position: 'absolute',
+    top: 18,
+    zIndex: 4,
+  },
+  kicker: {
+    color: '#a85a2a',
+    fontSize: 13,
     fontWeight: '800',
-    lineHeight: 20,
+    marginBottom: 4,
   },
-  fridgePromptText: {
-    color: '#6d6258',
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
+  currentRecipeName: {
+    color: '#27231f',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: 0,
+    lineHeight: 40,
   },
-  fridgePromptAction: {
+  cornerTopRight: {
+    alignItems: 'flex-end',
+    position: 'absolute',
+    right: 0,
+    top: 32,
+    zIndex: 4,
+  },
+  cornerBottomLeft: {
+    bottom: 176,
+    left: 0,
+    maxWidth: '48%',
+    position: 'absolute',
+    zIndex: 4,
+  },
+  cornerBottomRight: {
+    alignItems: 'flex-end',
+    bottom: 176,
+    maxWidth: '48%',
+    position: 'absolute',
+    right: 0,
+    zIndex: 4,
+  },
+  cornerMetric: {
     alignItems: 'center',
-    backgroundColor: '#f4e4d4',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 2,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  fridgePromptActionText: {
-    color: '#8f4b25',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  updateNotice: {
-    alignItems: 'center',
-    backgroundColor: '#edf7f1',
-    borderColor: '#c6dfd1',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 248, 240, 0.9)',
+    borderColor: '#ecdcc9',
+    borderRadius: 20,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  updateNoticeText: {
-    color: '#285f49',
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
-  },
-  recipeList: {
-    gap: 12,
-  },
-  recipeCard: {
-    backgroundColor: '#fffaf3',
-    borderColor: '#eadfd2',
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 12,
-    padding: 14,
-  },
-  cardImageRow: {
-    alignItems: 'center',
-    backgroundColor: '#f4eadf',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 10,
-    padding: 10,
-  },
-  imagePlaceholder: {
-    alignItems: 'center',
-    aspectRatio: 1,
-    backgroundColor: '#2f493e',
-    borderRadius: 8,
-    justifyContent: 'center',
-    width: 54,
-  },
-  recipeImageFrame: {
-    alignItems: 'center',
-    aspectRatio: 1,
-    backgroundColor: '#fff7ec',
-    borderColor: '#ead8c5',
-    borderRadius: 8,
-    borderWidth: 1,
-    justifyContent: 'center',
-    overflow: 'hidden',
-    width: 72,
-  },
-  recipeImage: {
-    height: '94%',
-    width: '94%',
-  },
-  cardImageCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  cardImageTitle: {
-    color: '#3b332c',
-    fontSize: 13,
-    fontWeight: '800',
-    lineHeight: 18,
-  },
-  cardImageText: {
-    color: '#786d63',
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-  recipeCardPressed: {
-    backgroundColor: '#f3eadf',
-  },
-  cardTopRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 10,
-  },
-  rankBadge: {
-    alignItems: 'center',
-    aspectRatio: 1,
-    backgroundColor: '#293f37',
-    borderRadius: 8,
-    justifyContent: 'center',
-    width: 34,
-  },
-  rankText: {
-    color: '#fff8f1',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  recipeTitleGroup: {
-    flex: 1,
-    minWidth: 0,
-  },
-  recipeName: {
-    color: '#2e2924',
-    fontSize: 19,
-    fontWeight: '800',
-    lineHeight: 24,
-  },
-  recipeSubtitle: {
-    color: '#786d63',
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  scorePill: {
-    alignItems: 'center',
-    backgroundColor: '#f0dcc9',
-    borderRadius: 8,
-    minWidth: 48,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 9,
+    shadowColor: '#6f4d35',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
   },
-  scoreText: {
-    color: '#8d4a24',
-    fontSize: 15,
+  cornerIcon: {
+    alignItems: 'center',
+    backgroundColor: '#f2ddca',
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  cornerMetricCopy: {
+    maxWidth: 110,
+    minWidth: 0,
+  },
+  cornerMetricLabel: {
+    color: '#8b7a6c',
+    fontSize: 10,
     fontWeight: '800',
   },
-  metaRow: {
+  cornerMetricValue: {
+    color: '#2f2923',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 1,
+  },
+  orbitStage: {
+    alignItems: 'center',
+    height: 486,
+    justifyContent: 'flex-start',
+    marginHorizontal: -18,
+    marginTop: 126,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  placemat: {
+    backgroundColor: '#e8d2b9',
+    borderColor: '#f5e9db',
+    borderRadius: 155,
+    borderWidth: 10,
+    height: 310,
+    position: 'absolute',
+    top: 146,
+    width: 310,
+  },
+  orbitPlate: {
+    alignItems: 'center',
+    height: 306,
+    justifyContent: 'center',
+    left: '50%',
+    marginLeft: -153,
+    position: 'absolute',
+    shadowColor: '#5d3d26',
+    shadowOffset: { width: 0, height: 22 },
+    shadowOpacity: 0.22,
+    shadowRadius: 26,
+    top: 66,
+    width: 306,
+  },
+  orbitPlatePressed: {
+    opacity: 0.95,
+  },
+  dishPlaceholder: {
+    alignItems: 'center',
+    backgroundColor: '#2f493e',
+    justifyContent: 'center',
+  },
+  orbitHint: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 248, 240, 0.86)',
+    borderColor: '#eadbc9',
+    borderRadius: 18,
+    borderWidth: 1,
+    bottom: 18,
+    flexDirection: 'row',
+    gap: 3,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    position: 'absolute',
+  },
+  orbitHintText: {
+    color: '#766a60',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  recipeCopyPanel: {
+    alignItems: 'center',
+    marginTop: -2,
+  },
+  recipeReason: {
+    color: '#4e443b',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+    maxWidth: 420,
+    textAlign: 'center',
+  },
+  detailPillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'center',
+    marginTop: 12,
   },
-  metaPill: {
+  detailPill: {
     alignItems: 'center',
-    backgroundColor: '#f4eadf',
-    borderRadius: 8,
+    backgroundColor: '#fff8f0',
+    borderColor: '#eadbc9',
+    borderRadius: 18,
+    borderWidth: 1,
     flexDirection: 'row',
     gap: 5,
-    minHeight: 30,
-    paddingHorizontal: 9,
+    minHeight: 34,
+    paddingHorizontal: 12,
   },
-  metaText: {
-    color: '#5d4736',
-    fontSize: 12,
-    fontWeight: '700',
+  detailPillText: {
+    color: '#6b4b36',
+    fontSize: 13,
+    fontWeight: '800',
   },
-  matchPanel: {
-    gap: 7,
+  detailPillWarning: {
+    alignItems: 'center',
+    backgroundColor: '#fff1e7',
+    borderColor: '#edc9ae',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    minHeight: 34,
+    paddingHorizontal: 12,
   },
-  matchLine: {
+  detailPillWarningText: {
+    color: '#8d4b25',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  actionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  primaryAction: {
+    alignItems: 'center',
+    backgroundColor: '#c8652e',
+    borderRadius: 24,
+    flexDirection: 'row',
+    gap: 8,
+    height: 48,
+    justifyContent: 'center',
+    minWidth: 166,
+    paddingHorizontal: 22,
+    shadowColor: '#8e4d28',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+  },
+  primaryActionPressed: {
+    backgroundColor: '#a95227',
+  },
+  primaryActionText: {
+    color: '#fff8f1',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  dots: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 7,
+    justifyContent: 'center',
+    marginTop: 16,
   },
-  matchText: {
-    color: '#3e4f45',
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
+  dot: {
+    backgroundColor: '#d3c4b5',
+    borderRadius: 4,
+    height: 8,
+    width: 8,
   },
-  warningLine: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 7,
-  },
-  warningText: {
-    color: '#8e522c',
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  reasonWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-  },
-  reasonChip: {
-    backgroundColor: '#e8f0e8',
-    borderRadius: 8,
-    color: '#2e624e',
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 17,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+  dotActive: {
+    backgroundColor: '#2f493e',
+    width: 22,
   },
 })
