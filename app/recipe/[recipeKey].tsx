@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native'
 
+import { FloatingTopButton } from '@/components/ui/floating-top-button'
 import { getRecipeDetail } from '@/services/recipeService'
 import { getTutorialOverview } from '@/services/tutorialService'
 import { KITCHEN_EQUIPMENT_OPTIONS } from '@/types/profile'
@@ -159,14 +160,13 @@ export default function RecipeDetailScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.topBar}>
-        <Pressable
+        <FloatingTopButton
           accessibilityLabel="返回"
+          iconName="chevron-back"
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-        >
-          <Ionicons name="chevron-back" size={22} color="#fff8f1" />
-        </Pressable>
+        />
         <Text style={styles.topBarTitle}>菜谱详情</Text>
+        <View style={styles.topButtonSlot} />
       </View>
 
       {status === 'loading' ? (
@@ -346,21 +346,16 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingTop: 12,
   },
-  backButton: {
-    alignItems: 'center',
-    aspectRatio: 1,
-    backgroundColor: '#2f493e',
-    borderRadius: 8,
-    justifyContent: 'center',
-    width: 42,
-  },
-  backButtonPressed: {
-    backgroundColor: '#20362d',
-  },
   topBarTitle: {
     color: '#332d27',
+    flex: 1,
     fontSize: 18,
     fontWeight: '800',
+    textAlign: 'center',
+  },
+  topButtonSlot: {
+    height: 48,
+    width: 48,
   },
   statePanel: {
     alignItems: 'center',

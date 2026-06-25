@@ -82,7 +82,6 @@ export default function MeScreen() {
   )
 
   const displayName = data?.context.profile.displayName?.trim() || '厨房新朋友'
-  const initial = displayName.slice(0, 1)
   const fridgePreview = data?.fridgeItems.slice(0, 4) ?? []
   const priorityFridgeCount = data?.fridgeItems.filter((item) => (
     item.timing.status === 'use_soon' || item.timing.status === 'past_suggested'
@@ -93,9 +92,7 @@ export default function MeScreen() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
           <Text style={styles.brand}>冰箱侦探</Text>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initial}</Text>
-          </View>
+          <View style={styles.topButtonSlot} />
         </View>
 
         <View style={styles.hero}>
@@ -237,15 +234,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   brand: { color: '#b55f28', flex: 1, fontSize: 25, fontWeight: '900' },
-  avatar: {
-    alignItems: 'center',
-    backgroundColor: '#183f34',
-    borderRadius: 22,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  avatarText: { color: '#ffffff', fontSize: 17, fontWeight: '900' },
+  topButtonSlot: { height: 48, width: 48 },
   hero: { paddingHorizontal: 24, paddingBottom: 26, paddingTop: 34 },
   eyebrow: { color: '#c2652a', fontSize: 12, fontWeight: '900', marginBottom: 8 },
   title: { color: '#332e29', fontSize: 34, fontWeight: '900', lineHeight: 42 },

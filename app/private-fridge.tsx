@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native'
 
+import { FloatingTopButton } from '@/components/ui/floating-top-button'
 import { FridgeInventoryCard } from '@/components/fridge-inventory'
 import { getFridgeInventoryItems } from '@/services/fridgeService'
 import type {
@@ -150,13 +151,13 @@ export default function PrivateFridgeScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="arrow-back-outline" size={25} color="#463f39" />
-        </Pressable>
+        <FloatingTopButton
+          accessibilityLabel="返回"
+          iconName="arrow-back-outline"
+          onPress={() => router.back()}
+        />
         <Text style={styles.topBarTitle}>私人冰箱</Text>
-        <Pressable onPress={() => router.push('/fridge-scan' as Href)} style={styles.iconButton}>
-          <Ionicons name="camera-outline" size={24} color="#c2652a" />
-        </Pressable>
+        <View style={styles.topButtonSlot} />
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -332,9 +333,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: 76,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 28,
   },
-  iconButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
+  topButtonSlot: { height: 48, width: 48 },
   topBarTitle: { color: '#c2652a', flex: 1, fontSize: 20, fontWeight: '900', textAlign: 'center' },
   container: { alignSelf: 'center', maxWidth: 430, paddingBottom: 50, width: '100%' },
   hero: { paddingHorizontal: 20, paddingBottom: 18, paddingTop: 26 },

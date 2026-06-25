@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native'
 
+import { FloatingTopButton } from '@/components/ui/floating-top-button'
 import { normalizeIngredientName } from '@/services/ingredientService'
 import {
   addManualFridgeItem,
@@ -394,21 +395,20 @@ export function UserProfileFlow({
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Pressable
+          <FloatingTopButton
+            accessibilityLabel={onBack ? '返回' : '打开菜单'}
             disabled={!onBack}
+            iconName={onBack ? 'arrow-back-outline' : 'menu-outline'}
             onPress={onBack}
-            style={styles.topBarButton}
-          >
-            <Ionicons
-              name={onBack ? 'arrow-back-outline' : 'menu-outline'}
-              size={25}
-              color="#5f554d"
-            />
-          </Pressable>
+          />
           <Text style={styles.brand}>冰箱侦探</Text>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={18} color="#fff8f1" />
-          </View>
+          {mode === 'settings' ? (
+            <View style={styles.topButtonSlot} />
+          ) : (
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={18} color="#fff8f1" />
+            </View>
+          )}
         </View>
 
         <View style={styles.hero}>
@@ -792,9 +792,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5ddd4',
     borderBottomWidth: 1,
     flexDirection: 'row',
-    minHeight: 66,
+    minHeight: 76,
     paddingHorizontal: 18,
-    paddingTop: 8,
+    paddingTop: 28,
     backgroundColor: '#fff8f1',
   },
   brand: {
@@ -1154,11 +1154,9 @@ const styles = StyleSheet.create({
     minHeight: 48,
     backgroundColor: selectedColor,
   },
-  topBarButton: {
-    alignItems: 'center',
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
+  topButtonSlot: {
+    height: 48,
+    width: 48,
   },
   fullWidthSaveButton: {
     flex: 1,

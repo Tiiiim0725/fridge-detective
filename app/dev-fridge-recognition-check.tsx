@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { type Href, useRouter } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 
 import { getConversationalRecipeRecommendations } from '@/services/conversationalRecommendationService'
+import { FloatingTopButton } from '@/components/ui/floating-top-button'
 import { runFridgeRecognition } from '@/services/fridgeRecognitionService'
 import {
   confirmFridgeScanItems,
@@ -52,6 +53,8 @@ export type FridgeRecognitionFlowMode = 'formal' | 'dev'
 
 export type FridgeRecognitionFlowProps = {
   mode: FridgeRecognitionFlowMode
+  autoOpenCamera?: boolean
+  autoOpenCameraKey?: string | null
   onBack?: () => void
   onContinue?: () => void
   showDebug?: boolean
@@ -249,12 +252,16 @@ function dedupeScanItemsByIngredientKey(items: FridgeScanItem[]): FridgeScanItem
 }
 
 export function FridgeRecognitionFlow({
+  autoOpenCamera = false,
+  autoOpenCameraKey = null,
   mode,
   onBack,
   onContinue,
   showDebug = false,
 }: FridgeRecognitionFlowProps) {
   const router = useRouter()
+  const lastAutoOpenCameraKeyRef = useRef<string | null>(null)
+  const requestedAutoOpenCameraKey = autoOpenCameraKey ?? (autoOpenCamera ? 'default' : null)
   const [photos, setPhotos] = useState<LocalPhoto[]>([])
   const [flowStatus, setFlowStatus] = useState<FlowStatus>('idle')
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null)
@@ -409,6 +416,18 @@ export function FridgeRecognitionFlow({
       },
     ])
   }
+
+  useEffect(() => {
+    if (
+      !requestedAutoOpenCameraKey ||
+      lastAutoOpenCameraKeyRef.current === requestedAutoOpenCameraKey
+    ) {
+      return
+    }
+
+    lastAutoOpenCameraKeyRef.current = requestedAutoOpenCameraKey
+    void takePhoto()
+  }, [requestedAutoOpenCameraKey])
 
   function addUrlFallbackPhoto() {
     const trimmedUrl = urlFallback.trim()
@@ -729,21 +748,14 @@ export function FridgeRecognitionFlow({
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Pressable
+          <FloatingTopButton
+            accessibilityLabel={mode === 'formal' ? '返回' : '打开菜单'}
             disabled={!onBack}
+            iconName={mode === 'formal' ? 'arrow-back-outline' : 'menu-outline'}
             onPress={onBack}
-            style={styles.menuButton}
-          >
-            <Ionicons
-              name={mode === 'formal' ? 'arrow-back-outline' : 'menu-outline'}
-              size={28}
-              color="#4f4741"
-            />
-          </Pressable>
+          />
           <Text style={styles.brand}>{mode === 'formal' ? '冰箱侦探' : '储藏室'}</Text>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={19} color="#ffffff" />
-          </View>
+          <View style={styles.topButtonSlot} />
         </View>
 
         <View style={styles.heroCopy}>
@@ -1419,16 +1431,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 74,
+    minHeight: 76,
     paddingHorizontal: 22,
-    paddingTop: 12,
+    paddingTop: 28,
     backgroundColor: '#fff8f1',
   },
-  menuButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 42,
-    width: 42,
+  topButtonSlot: {
+    height: 48,
+    width: 48,
   },
   brand: {
     color: '#b55f28',
@@ -1447,6 +1457,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 44,
     backgroundColor: '#17251f',
+  },
+  avatarPressed: {
+    opacity: 0.74,
   },
   heroCopy: {
     alignItems: 'center',
