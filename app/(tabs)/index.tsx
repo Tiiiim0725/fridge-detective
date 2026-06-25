@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native'
 
+import { FloatingTopButton } from '@/components/ui/floating-top-button'
 import { getIngredientDictionary } from '@/services/ingredientService'
 import { getPersonalizedRecipeRecommendations } from '@/services/recommendationService'
 import type {
@@ -308,27 +309,13 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.topBar}>
-        <Pressable
+        <FloatingTopButton
           accessibilityLabel="刷新推荐"
+          iconName="refresh-outline"
           onPress={() => loadRecommendations('refresh')}
-          style={({ pressed }) => [
-            styles.topIconButton,
-            pressed && styles.topIconButtonPressed,
-          ]}
-        >
-          <Ionicons name="refresh-outline" size={21} color="#2f2923" />
-        </Pressable>
+        />
         <Text style={styles.topKicker}>冰箱侦探</Text>
-        <Pressable
-          accessibilityLabel="拍照更新冰箱"
-          onPress={() => router.push('/fridge-scan')}
-          style={({ pressed }) => [
-            styles.topIconButton,
-            pressed && styles.topIconButtonPressed,
-          ]}
-        >
-          <Ionicons name="camera-outline" size={21} color="#2f2923" />
-        </Pressable>
+        <View style={styles.topButtonSlot} />
       </View>
 
       {fridgeUpdated === '1' ? (
@@ -537,22 +524,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  topIconButton: {
-    alignItems: 'center',
-    backgroundColor: '#fff8f0',
-    borderColor: '#eadbc9',
-    borderRadius: 22,
-    borderWidth: 1,
-    height: 44,
-    justifyContent: 'center',
-    shadowColor: '#6f4d35',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    width: 44,
-  },
-  topIconButtonPressed: {
-    backgroundColor: '#efe2d5',
+  topButtonSlot: {
+    height: 48,
+    width: 48,
   },
   updateNotice: {
     alignItems: 'center',

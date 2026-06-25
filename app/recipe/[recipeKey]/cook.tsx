@@ -15,6 +15,7 @@ import { CookingAssistantPanel } from '@/components/cooking/CookingAssistantPane
 import { CookingSpeechControls } from '@/components/cooking/CookingSpeechControls'
 import { CookingStepTimer } from '@/components/cooking/CookingStepTimer'
 import { TutorialStepCard } from '@/components/cooking/TutorialStepCard'
+import { FloatingTopButton, FLOATING_TOP_BUTTON_SIZE } from '@/components/ui/floating-top-button'
 import {
   COOKING_COLORS,
   COOKING_CONTROL_SIZE,
@@ -212,14 +213,12 @@ export default function CookingTutorialScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 18) + 24 }]}
       >
         <View style={styles.container}>
-          <View style={[styles.topControls, { paddingTop: insets.top + 12 }]}>
-            <Pressable
+          <View style={[styles.topControls, { paddingTop: insets.top + 28 }]}>
+            <FloatingTopButton
               accessibilityLabel="返回菜谱详情"
+              iconName="arrow-back-outline"
               onPress={() => void leaveTutorial()}
-              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={22} color={COOKING_COLORS.text} />
-            </Pressable>
+            />
 
             <View style={styles.saveStatus}>
               <View style={[
@@ -345,20 +344,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 82,
   },
-  iconButton: {
-    alignItems: 'center',
-    backgroundColor: COOKING_COLORS.surface,
-    borderRadius: COOKING_RADIUS,
-    height: COOKING_CONTROL_SIZE,
-    justifyContent: 'center',
-    width: COOKING_CONTROL_SIZE,
-    ...COOKING_SHADOW,
-  },
-  iconButtonPressed: {
-    opacity: 0.72,
-  },
   topSpacer: {
-    width: COOKING_CONTROL_SIZE,
+    width: FLOATING_TOP_BUTTON_SIZE,
   },
   saveStatus: {
     alignItems: 'center',
