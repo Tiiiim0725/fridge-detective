@@ -80,7 +80,7 @@ type PreviewIngredient = {
   id: string
   displayName: string
   quantityLabel: string
-  icon: IoniconName
+  icon: string
   source: 'preview' | 'scan' | 'manual'
 }
 
@@ -97,21 +97,21 @@ const mockIngredientsForPreview: PreviewIngredient[] = [
     id: 'preview-tomato',
     displayName: '传家宝番茄',
     quantityLabel: '示例识别',
-    icon: 'restaurant-outline',
+    icon: '🍅',
     source: 'preview',
   },
   {
     id: 'preview-egg',
     displayName: '农场鸡蛋',
     quantityLabel: '半打',
-    icon: 'ellipse-outline',
+    icon: '🥚',
     source: 'preview',
   },
   {
     id: 'preview-pepper',
     displayName: '甜椒',
     quantityLabel: '拍照后替换',
-    icon: 'leaf-outline',
+    icon: '🫑',
     source: 'preview',
   },
 ]
@@ -188,25 +188,34 @@ function labelForStatus(status: LocalPhotoStatus): string {
   return '待识别'
 }
 
-function iconForItemName(name: string): IoniconName {
+function iconForItemName(name: string): string {
   const normalized = name.toLowerCase()
 
-  if (normalized.includes('milk') || normalized.includes('奶')) {
-    return 'water-outline'
-  }
+  if (normalized.includes('番茄') || normalized.includes('西红柿') || normalized.includes('tomato')) return '🍅'
+  if (normalized.includes('黄瓜') || normalized.includes('cucumber')) return '🥒'
+  if (normalized.includes('欧芹') || normalized.includes('香菜') || normalized.includes('parsley') || normalized.includes('cilantro')) return '🌿'
+  if (normalized.includes('卷心菜') || normalized.includes('圆白菜') || normalized.includes('包菜') || normalized.includes('cabbage')) return '🥬'
+  if (normalized.includes('橙') || normalized.includes('橘') || normalized.includes('柑') || normalized.includes('orange') || normalized.includes('citrus')) return '🍊'
+  if (normalized.includes('鸡蛋') || normalized.includes('蛋') || normalized.includes('egg')) return '🥚'
+  if (normalized.includes('牛奶') || normalized.includes('奶') || normalized.includes('milk')) return '🥛'
+  if (normalized.includes('牛肉') || normalized.includes('牛排') || normalized.includes('beef') || normalized.includes('steak')) return '🥩'
+  if (normalized.includes('猪肉') || normalized.includes('pork')) return '🥓'
+  if (normalized.includes('鸡肉') || normalized.includes('chicken')) return '🍗'
+  if (normalized.includes('鱼') || normalized.includes('三文鱼') || normalized.includes('salmon') || normalized.includes('fish')) return '🐟'
+  if (normalized.includes('虾') || normalized.includes('shrimp')) return '🦐'
+  if (normalized.includes('蘑菇') || normalized.includes('菌') || normalized.includes('mushroom')) return '🍄'
+  if (normalized.includes('胡萝卜') || normalized.includes('carrot')) return '🥕'
+  if (normalized.includes('土豆') || normalized.includes('马铃薯') || normalized.includes('potato')) return '🥔'
+  if (normalized.includes('洋葱') || normalized.includes('onion')) return '🧅'
+  if (normalized.includes('辣椒') || normalized.includes('甜椒') || normalized.includes('椒') || normalized.includes('pepper')) return '🫑'
+  if (normalized.includes('生菜') || normalized.includes('lettuce')) return '🥬'
+  if (normalized.includes('苹果') || normalized.includes('apple')) return '🍎'
+  if (normalized.includes('香蕉') || normalized.includes('banana')) return '🍌'
+  if (normalized.includes('柠檬') || normalized.includes('lemon')) return '🍋'
+  if (normalized.includes('米饭') || normalized.includes('饭') || normalized.includes('rice')) return '🍚'
+  if (normalized.includes('豆腐') || normalized.includes('tofu')) return '◻️'
 
-  if (
-    normalized.includes('tomato')
-    || normalized.includes('pepper')
-    || normalized.includes('rice')
-    || normalized.includes('番茄')
-    || normalized.includes('甜椒')
-    || normalized.includes('米')
-  ) {
-    return 'leaf-outline'
-  }
-
-  return 'restaurant-outline'
+  return '🥡'
 }
 
 function inventoryTimingModeLabel(mode: FridgeInventoryTimingMode): string {
@@ -463,14 +472,11 @@ export function FridgeRecognitionFlow({
     return inventoryTimingModes[itemId] ?? 'newly_stored'
   }
 
-  function toggleInventoryTimingMode(itemId: string) {
-    setInventoryTimingModes((current) => {
-      const currentMode = current[itemId] ?? 'newly_stored'
-      return {
-        ...current,
-        [itemId]: currentMode === 'newly_stored' ? 'already_in_fridge' : 'newly_stored',
-      }
-    })
+  function setInventoryTimingMode(itemId: string, mode: FridgeInventoryTimingMode) {
+    setInventoryTimingModes((current) => ({
+      ...current,
+      [itemId]: mode,
+    }))
   }
 
   function resetFlow() {
@@ -920,7 +926,7 @@ export function FridgeRecognitionFlow({
               </Text>
               <Text style={styles.resultsSubtitle}>
                 {confirmableItems.length > 0
-                  ? '默认全选；点卡片可取消误识别，点新旧标签可调整建议食用时间起算。'
+                  ? '默认全选；点卡片决定是否加入冰箱，保留后再选择新放入或已在冰箱。'
                   : localManualItems.length > 0
                     ? '手动添加的食材会在你确认后进入库存。'
                     : recognizedItems.length > 0
@@ -941,6 +947,9 @@ export function FridgeRecognitionFlow({
               const scanItem = recognizedItems.find((candidate) => candidate.id === item.id)
               const localManualItem = localManualItems.find((candidate) => candidate.id === item.id)
               const timingMode = timingModeForItem(item.id)
+              const canShowTimingControl = selected && (scanItem !== undefined || item.source === 'preview')
+              const canShowCollapsedTiming = !selected && (scanItem !== undefined || item.source === 'preview')
+              const canShowMeta = scanItem !== undefined || localManualItem !== undefined || item.source === 'preview'
               const weak = scanItem
                 ? scanItem.needsReview || (scanItem.confidence ?? 0) < 0.7
                 : localManualItem?.needsReview ?? false
@@ -953,62 +962,104 @@ export function FridgeRecognitionFlow({
                   style={({ pressed }) => [
                     styles.detectedCard,
                     selected && totalConfirmableCount > 0 && styles.detectedCardSelected,
+                    !selected && totalConfirmableCount > 0 && styles.detectedCardExcluded,
                     weak && styles.detectedCardWeak,
                     pressed && styles.detectedCardPressed,
                   ]}
                 >
-                  <View style={styles.detectedIcon}>
-                    <Ionicons name={item.icon} size={24} color="#ffffff" />
+                  <View style={styles.detectedCardTop}>
+                    <View style={[
+                      styles.detectedIcon,
+                      selected && totalConfirmableCount > 0 && styles.detectedIconSelected,
+                    ]}>
+                      <Text style={styles.detectedIconText}>{item.icon}</Text>
+                    </View>
+                    {totalConfirmableCount > 0 ? (
+                      <View style={[
+                        styles.detectedSelectionBadge,
+                        selected ? styles.detectedSelectionBadgeSelected : styles.detectedSelectionBadgeOff,
+                      ]}>
+                        <Ionicons
+                          name={selected ? 'checkmark-circle' : 'remove-circle-outline'}
+                          size={16}
+                          color={selected ? '#1f5945' : '#9c9087'}
+                        />
+                        <Text style={[
+                          styles.detectedSelectionText,
+                          selected ? styles.detectedSelectionTextSelected : styles.detectedSelectionTextOff,
+                        ]}>
+                          {selected ? '已保留' : '不加入'}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                   <Text style={styles.detectedName} numberOfLines={2}>{item.displayName}</Text>
                   <Text style={styles.detectedQuantity} numberOfLines={1}>{item.quantityLabel}</Text>
-                  {scanItem || localManualItem ? (
+                  {canShowMeta ? (
                     <>
-                      {scanItem ? (
-                        <Pressable
-                          onPress={(event) => {
-                            event.stopPropagation()
-                            toggleInventoryTimingMode(item.id)
-                          }}
-                          style={[
-                            styles.inventoryTimingChip,
-                            timingMode === 'newly_stored'
-                              ? styles.inventoryTimingChipNew
-                              : styles.inventoryTimingChipExisting,
-                          ]}
-                        >
-                          <View style={[
-                            styles.inventoryTimingDot,
-                            timingMode === 'newly_stored'
-                              ? styles.inventoryTimingDotNew
-                              : styles.inventoryTimingDotExisting,
-                          ]} />
-                          <View style={styles.inventoryTimingCopy}>
-                            <Text style={[
-                              styles.inventoryTimingLabel,
-                              timingMode === 'newly_stored'
-                                ? styles.inventoryTimingLabelNew
-                                : styles.inventoryTimingLabelExisting,
-                            ]}>
-                              {inventoryTimingModeLabel(timingMode)}
-                            </Text>
-                            <Text style={styles.inventoryTimingHint}>
-                              {inventoryTimingModeHint(timingMode)}
-                            </Text>
+                      {canShowTimingControl ? (
+                        <View style={styles.inventoryTimingPanel}>
+                          <Text style={styles.inventoryTimingPanelTitle}>食材放入时间</Text>
+                          <View style={styles.inventoryTimingOptions}>
+                            {(['newly_stored', 'already_in_fridge'] as FridgeInventoryTimingMode[]).map((modeOption) => {
+                              const active = timingMode === modeOption
+                              const isNew = modeOption === 'newly_stored'
+                              return (
+                                <Pressable
+                                  key={modeOption}
+                                  onPress={(event) => {
+                                    event.stopPropagation()
+                                    setInventoryTimingMode(item.id, modeOption)
+                                  }}
+                                  style={[
+                                    styles.inventoryTimingOption,
+                                    active && (isNew
+                                      ? styles.inventoryTimingOptionNewActive
+                                      : styles.inventoryTimingOptionExistingActive),
+                                  ]}
+                                >
+                                  <View style={[
+                                    styles.inventoryTimingDot,
+                                    isNew ? styles.inventoryTimingDotNew : styles.inventoryTimingDotExisting,
+                                  ]} />
+                                  <View style={styles.inventoryTimingCopy}>
+                                    <Text style={[
+                                      styles.inventoryTimingLabel,
+                                      active && (isNew
+                                        ? styles.inventoryTimingLabelNew
+                                        : styles.inventoryTimingLabelExisting),
+                                    ]}>
+                                      {inventoryTimingModeLabel(modeOption)}
+                                    </Text>
+                                    <Text style={styles.inventoryTimingHint}>
+                                      {inventoryTimingModeHint(modeOption)}
+                                    </Text>
+                                  </View>
+                                </Pressable>
+                              )
+                            })}
                           </View>
-                        </Pressable>
+                        </View>
+                      ) : canShowCollapsedTiming ? (
+                        <View style={styles.inventoryTimingCollapsed}>
+                          <Text style={styles.inventoryTimingCollapsedText}>选中后可设置新放入 / 已在冰箱</Text>
+                        </View>
                       ) : null}
 
                       <View style={styles.detectedMetaRow}>
-                        <Text style={styles.confidenceText}>
-                          {scanItem ? confidenceLabel(scanItem.confidence) : '手动添加'}
-                        </Text>
+                        <View style={styles.confidenceGroup}>
+                          <Text style={styles.confidenceLabel}>
+                            {scanItem || item.source === 'preview' ? '识别可信度' : '来源'}
+                          </Text>
+                          <Text style={styles.confidenceText}>
+                            {scanItem
+                              ? confidenceLabel(scanItem.confidence)
+                              : item.source === 'preview'
+                                ? '示例'
+                                : '手动添加'}
+                          </Text>
+                        </View>
                         {weak ? <Text style={styles.reviewBadge}>待确认</Text> : null}
-                        <Ionicons
-                          name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                          size={18}
-                          color={selected ? '#1f5945' : '#9c9087'}
-                        />
                       </View>
                     </>
                   ) : null}
@@ -1834,7 +1885,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: 8,
-    minHeight: 148,
+    minHeight: 196,
     padding: 14,
     width: '47%',
     backgroundColor: '#ffffff',
@@ -1842,6 +1893,9 @@ const styles = StyleSheet.create({
   detectedCardSelected: {
     borderColor: '#1f5945',
     backgroundColor: '#f1f8f4',
+  },
+  detectedCardExcluded: {
+    opacity: 0.62,
   },
   detectedCardWeak: {
     borderColor: '#e2b67a',
@@ -1880,13 +1934,57 @@ const styles = StyleSheet.create({
   pantryCandidateCard: {
     backgroundColor: '#fffaf4',
   },
+  detectedCardTop: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   detectedIcon: {
     alignItems: 'center',
     borderRadius: 999,
     height: 54,
     justifyContent: 'center',
     width: 54,
-    backgroundColor: '#dc884d',
+    backgroundColor: '#fffaf3',
+    borderColor: '#ead9ca',
+    borderWidth: 1,
+  },
+  detectedIconSelected: {
+    backgroundColor: '#ecf8f1',
+    borderColor: '#b7dec8',
+  },
+  detectedIconText: {
+    fontSize: 32,
+    lineHeight: 40,
+    textAlign: 'center',
+  },
+  detectedSelectionBadge: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  detectedSelectionBadgeSelected: {
+    backgroundColor: '#e6f4ec',
+    borderColor: '#b8dcc8',
+  },
+  detectedSelectionBadgeOff: {
+    backgroundColor: '#f5eee8',
+    borderColor: '#e1d7ce',
+  },
+  detectedSelectionText: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  detectedSelectionTextSelected: {
+    color: '#1f5945',
+  },
+  detectedSelectionTextOff: {
+    color: '#7d746c',
   },
   detectedName: {
     color: '#2f2a25',
@@ -1899,24 +1997,58 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  inventoryTimingChip: {
+  inventoryTimingPanel: {
+    borderColor: '#d8eadf',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 7,
+    marginTop: 2,
+    padding: 8,
+    backgroundColor: 'rgba(247, 252, 249, 0.92)',
+  },
+  inventoryTimingPanelTitle: {
+    color: '#4d6257',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  inventoryTimingOptions: {
+    gap: 7,
+  },
+  inventoryTimingOption: {
     alignItems: 'center',
+    borderColor: '#e6ded5',
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: 7,
     marginTop: 2,
-    minHeight: 44,
-    paddingHorizontal: 9,
-    paddingVertical: 8,
+    minHeight: 42,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    backgroundColor: '#ffffff',
   },
-  inventoryTimingChipNew: {
-    backgroundColor: 'rgba(231, 244, 236, 0.86)',
-    borderColor: '#b8dcc8',
+  inventoryTimingOptionNewActive: {
+    backgroundColor: 'rgba(231, 244, 236, 0.9)',
+    borderColor: '#79c79c',
   },
-  inventoryTimingChipExisting: {
+  inventoryTimingOptionExistingActive: {
     backgroundColor: 'rgba(255, 239, 236, 0.9)',
-    borderColor: '#efc2bb',
+    borderColor: '#df8d81',
+  },
+  inventoryTimingCollapsed: {
+    borderColor: '#e4dad1',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 2,
+    paddingHorizontal: 9,
+    paddingVertical: 9,
+    backgroundColor: '#f9f3ed',
+  },
+  inventoryTimingCollapsedText: {
+    color: '#82776f',
+    fontSize: 11,
+    fontWeight: '800',
+    lineHeight: 16,
   },
   inventoryTimingDot: {
     borderRadius: 999,
@@ -1926,7 +2058,7 @@ const styles = StyleSheet.create({
   inventoryTimingDotNew: { backgroundColor: '#2f8c5c' },
   inventoryTimingDotExisting: { backgroundColor: '#c24f3f' },
   inventoryTimingCopy: { flex: 1, minWidth: 0 },
-  inventoryTimingLabel: { fontSize: 13, fontWeight: '900' },
+  inventoryTimingLabel: { color: '#4f4741', fontSize: 13, fontWeight: '900' },
   inventoryTimingLabelNew: { color: '#225f40' },
   inventoryTimingLabelExisting: { color: '#8d3e35' },
   inventoryTimingHint: { color: '#746b63', fontSize: 11, fontWeight: '800', marginTop: 1 },
@@ -1937,10 +2069,26 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 'auto',
   },
+  confidenceGroup: {
+    alignItems: 'center',
+    backgroundColor: '#fffaf4',
+    borderColor: '#e8ded4',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  confidenceLabel: {
+    color: '#9b6a46',
+    fontSize: 10,
+    fontWeight: '900',
+  },
   confidenceText: {
     color: '#746b63',
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
   },
   reviewBadge: {
     borderRadius: 999,
