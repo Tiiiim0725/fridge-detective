@@ -242,6 +242,7 @@ function validateRecipeCollection({
   imageRecipeKeys,
   errors,
   warnings,
+  tutorialBodyUsage,
 }) {
   const seenRecipeKeys = new Set()
 
@@ -267,6 +268,11 @@ function validateRecipeCollection({
           const softNote = bodyLength > softBodyMax ? `; try to stay within ${softBodyMax}` : ''
           warnings.push(`${context} body length ${bodyLength} outside recommended ${recommendedBodyMin}-${recommendedBodyMax}${softNote}`)
         }
+        if (kind === 'tutorialSteps') {
+          const bodyUsage = tutorialBodyUsage.get(step.body) ?? []
+          bodyUsage.push(`${recipe.recipeKey}#${step.stepNumber}`)
+          tutorialBodyUsage.set(step.body, bodyUsage)
+        }
         checkText(step.title, `${context} title`, errors)
         checkText(step.body, `${context} body`, errors)
 
@@ -289,13 +295,26 @@ function readBatchFiles() {
 
 function validateBatchShape(batch, filePath, errors) {
   const label = path.relative(repoRoot, filePath)
+  const expectedRanges = {
+    A: [1, 50],
+    B: [51, 100],
+    C: [101, 150],
+    D: [151, 200],
+  }
+  const expectedRange = expectedRanges[batch.batch]
+
   assert(batch.schemaVersion === 'recipe-cooking-steps-batch-v1', `${label} has unexpected schemaVersion`, errors)
   assert(Array.isArray(batch.recipes), `${label} recipes must be an array`, errors)
   assert(Array.isArray(batch.sortOrderRange) && batch.sortOrderRange.length === 2, `${label} sortOrderRange must have two values`, errors)
+  assert(Boolean(expectedRange), `${label} has unexpected batch value: ${batch.batch}`, errors)
 
-  if (batch.batch === 'A') {
-    assert(batch.sortOrderRange?.[0] === 1 && batch.sortOrderRange?.[1] === 50, `${label} batch A should cover sort order 1-50`, errors)
-    assert((batch.recipes ?? []).length === 50, `${label} batch A should contain 50 recipes`, errors)
+  if (expectedRange) {
+    assert(
+      batch.sortOrderRange?.[0] === expectedRange[0] && batch.sortOrderRange?.[1] === expectedRange[1],
+      `${label} batch ${batch.batch} should cover sort order ${expectedRange[0]}-${expectedRange[1]}`,
+      errors,
+    )
+    assert((batch.recipes ?? []).length === 50, `${label} batch ${batch.batch} should contain 50 recipes`, errors)
   }
 }
 
@@ -304,6 +323,7 @@ function validateSamplesAndBatches() {
   const imageRecipeKeys = new Set(readImageManifest().map((row) => row.recipe_key))
   const errors = []
   const warnings = []
+  const tutorialBodyUsage = new Map()
   const { actionKeys, actionKeySet } = validateActionKeyPool(samples, errors)
 
   validateRecipeCollection({
@@ -313,12 +333,18 @@ function validateSamplesAndBatches() {
     imageRecipeKeys,
     errors,
     warnings,
+    tutorialBodyUsage,
   })
 
   const batchPaths = readBatchFiles()
+  const batchRecipeKeys = new Set()
   for (const batchPath of batchPaths) {
     const batch = JSON.parse(readText(batchPath))
     validateBatchShape(batch, batchPath, errors)
+    for (const recipe of batch.recipes ?? []) {
+      assert(!batchRecipeKeys.has(recipe.recipeKey), `${recipe.recipeKey} appears in more than one batch file`, errors)
+      batchRecipeKeys.add(recipe.recipeKey)
+    }
     validateRecipeCollection({
       recipes: batch.recipes ?? [],
       collectionLabel: path.relative(repoRoot, batchPath),
@@ -326,7 +352,18 @@ function validateSamplesAndBatches() {
       imageRecipeKeys,
       errors,
       warnings,
+      tutorialBodyUsage,
     })
+  }
+
+  if (batchPaths.length > 0) {
+    assert(batchRecipeKeys.size === 200, `batch files cover ${batchRecipeKeys.size} recipes; expected 200`, errors)
+  }
+
+  for (const [body, usages] of tutorialBodyUsage.entries()) {
+    if (usages.length > 3) {
+      warnings.push(`tutorial body repeated ${usages.length} times: "${body}" (${usages.slice(0, 6).join(', ')}${usages.length > 6 ? ', ...' : ''})`)
+    }
   }
 
   if (warnings.length > 0) {
