@@ -12,7 +12,14 @@ type SessionRow = {
   completed_at: string | null
   created_at: string
   updated_at: string
-  recipes?: { recipe_key?: string } | null
+  recipes?: {
+    recipe_key?: string
+    zh_name?: string | null
+  } | null
+}
+
+export type LatestCookingSession = CookingSession & {
+  recipeZhName: string | null
 }
 
 function toServiceError(error: unknown, fallbackMessage: string): Error {
@@ -94,6 +101,28 @@ export async function getOrCreateCookingSession(recipeKey: string): Promise<Cook
 
   if (error) throw toServiceError(error, 'Failed to create cooking session')
   return mapSession(data as SessionRow, recipeKey)
+}
+
+export async function getLatestOpenCookingSession(): Promise<LatestCookingSession | null> {
+  const authUser = await ensureAuthUser()
+
+  const { data, error } = await supabase
+    .from('cooking_sessions')
+    .select('*, recipes(recipe_key, zh_name)')
+    .eq('user_id', authUser.userId)
+    .in('status', ['active', 'paused'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw toServiceError(error, 'Failed to query latest cooking session')
+  if (!data) return null
+
+  const row = data as SessionRow
+  return {
+    ...mapSession(row),
+    recipeZhName: row.recipes?.zh_name ?? null,
+  }
 }
 
 export async function updateCookingSession(
