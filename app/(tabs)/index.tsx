@@ -262,6 +262,37 @@ export default function HomeScreen() {
     setActiveIndex((index) => loopIndex(index + 1, recommendations.length))
   }, [recommendations.length])
 
+  const openCurrentRecipe = useCallback(() => {
+    if (!currentItem) {
+      return
+    }
+
+    router.push({
+      pathname: '/recipe/[recipeKey]',
+      params: { recipeKey: currentItem.recipe.recipeKey },
+    })
+  }, [currentItem, router])
+
+  const recipeSheetPanResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: (_event, gestureState) => (
+      Math.abs(gestureState.dy) > 8
+      && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.05
+    ),
+    onMoveShouldSetPanResponderCapture: (_event, gestureState) => (
+      Math.abs(gestureState.dy) > 8
+      && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.05
+    ),
+    onPanResponderRelease: (_event, gestureState) => {
+      const shouldOpenRecipe = gestureState.dy < -42 || gestureState.vy < -0.5
+
+      if (shouldOpenRecipe) {
+        openCurrentRecipe()
+      }
+    },
+  }), [openCurrentRecipe])
+
   const panResponder = useMemo(() => PanResponder.create({
     onPanResponderGrant: () => {
       setDragProgress(0)
@@ -462,24 +493,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.actionRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="查看菜谱详情"
-              onPress={() => router.push({
-                pathname: '/recipe/[recipeKey]',
-                params: { recipeKey: currentItem.recipe.recipeKey },
-              })}
-              style={({ pressed }) => [
-                styles.primaryAction,
-                pressed && styles.primaryActionPressed,
-              ]}
-            >
-              <Text style={styles.primaryActionText}>查看做法</Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff8f1" />
-            </Pressable>
-          </View>
-
           <View style={styles.dots}>
             {recommendations.map((item, index) => (
               <Pressable
@@ -492,6 +505,32 @@ export default function HomeScreen() {
                 ]}
               />
             ))}
+          </View>
+
+          <View style={styles.recipeSheetFrame} {...recipeSheetPanResponder.panHandlers}>
+            <View style={styles.recipeSheetCircle} />
+            <View style={styles.recipeSheetContent}>
+              <View style={styles.recipeSheetHandle} />
+              <Text style={styles.recipeSheetKicker} selectable={false}>上滑查看完整做法</Text>
+              <Text style={styles.recipeSheetTitle} numberOfLines={1} selectable={false}>
+                {currentItem.recipe.zhName}
+              </Text>
+              <Text style={styles.recipeSheetBody} numberOfLines={2} selectable={false}>
+                {currentItem.recipe.description ?? currentReason}
+              </Text>
+              <View style={styles.recipeSheetMetaRow}>
+                <View style={styles.recipeSheetMetaPill}>
+                  <Ionicons name="time-outline" size={14} color="#5f645f" />
+                  <Text style={styles.recipeSheetMetaText} selectable={false}>{currentItem.recipe.totalTimeMinutes} 分钟</Text>
+                </View>
+                <View style={styles.recipeSheetMetaPill}>
+                  <Ionicons name="restaurant-outline" size={14} color="#5f645f" />
+                  <Text style={styles.recipeSheetMetaText} selectable={false}>
+                    {difficultyLabels[currentItem.recipe.difficultyKey] ?? currentItem.recipe.difficultyKey}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
       ) : null}
@@ -510,7 +549,7 @@ const styles = StyleSheet.create({
     maxWidth: PHONE_CANVAS_WIDTH,
     minHeight: PHONE_CANVAS_MIN_HEIGHT,
     padding: 18,
-    paddingBottom: 34,
+    paddingBottom: 122,
     width: '100%',
   },
   topBar: {
@@ -782,36 +821,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  actionRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'center',
-    marginTop: 18,
-  },
-  primaryAction: {
-    alignItems: 'center',
-    backgroundColor: '#c8652e',
-    borderRadius: 24,
-    flexDirection: 'row',
-    gap: 8,
-    height: 48,
-    justifyContent: 'center',
-    minWidth: 166,
-    paddingHorizontal: 22,
-    shadowColor: '#8e4d28',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-  },
-  primaryActionPressed: {
-    backgroundColor: '#a95227',
-  },
-  primaryActionText: {
-    color: '#fff8f1',
-    fontSize: 15,
-    fontWeight: '900',
-  },
   dots: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -828,5 +837,84 @@ const styles = StyleSheet.create({
   dotActive: {
     backgroundColor: '#2f493e',
     width: 22,
+  },
+  recipeSheetBody: {
+    color: '#5c5f5a',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginTop: 5,
+    maxWidth: 310,
+    textAlign: 'center',
+  },
+  recipeSheetCircle: {
+    backgroundColor: '#eceeeb',
+    borderColor: '#f8f5ee',
+    borderRadius: 360,
+    borderWidth: 1,
+    height: 720,
+    left: '50%',
+    marginLeft: -360,
+    position: 'absolute',
+    top: 0,
+    width: 720,
+  },
+  recipeSheetContent: {
+    alignItems: 'center',
+    paddingHorizontal: 42,
+    paddingTop: 54,
+  },
+  recipeSheetFrame: {
+    alignSelf: 'center',
+    height: 230,
+    marginHorizontal: -18,
+    marginTop: -88,
+    overflow: 'hidden',
+    position: 'relative',
+    width: PHONE_CANVAS_WIDTH,
+  },
+  recipeSheetHandle: {
+    backgroundColor: '#c7c9c4',
+    borderRadius: 3,
+    height: 5,
+    marginBottom: 11,
+    width: 48,
+  },
+  recipeSheetKicker: {
+    color: '#7d8179',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0,
+    marginBottom: 6,
+  },
+  recipeSheetMetaPill: {
+    alignItems: 'center',
+    backgroundColor: '#f7f8f5',
+    borderColor: '#dfe2dc',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    minHeight: 30,
+    paddingHorizontal: 10,
+  },
+  recipeSheetMetaRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  recipeSheetMetaText: {
+    color: '#555b54',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  recipeSheetTitle: {
+    color: '#252722',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 0,
+    maxWidth: 330,
+    textAlign: 'center',
   },
 })

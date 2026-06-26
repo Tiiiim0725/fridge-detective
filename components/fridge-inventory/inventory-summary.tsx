@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons'
 import { StyleSheet, Text, View } from 'react-native'
 
+import { COOKING_RADIUS } from '@/constants/cookingUi'
 import type { FridgeInventoryItem } from '@/types/fridge'
+
+const INVENTORY_RADIUS = COOKING_RADIUS
 
 export function InventorySummary({ items }: { items: FridgeInventoryItem[] }) {
   const useSoonCount = items.filter((item) => item.timing.status === 'use_soon').length
@@ -54,7 +57,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ffffff',
     borderColor: '#ded1c5',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -70,7 +73,7 @@ const styles = StyleSheet.create({
   summaryItem: {
     alignItems: 'center',
     backgroundColor: '#fbf7f2',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     flexDirection: 'row',
     gap: 8,
     minHeight: 54,
@@ -79,7 +82,7 @@ const styles = StyleSheet.create({
   },
   iconWrap: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     height: 34,
     justifyContent: 'center',
     width: 34,
