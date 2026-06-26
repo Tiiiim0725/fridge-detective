@@ -1,0 +1,732 @@
+{
+  "schemaVersion": "recipe-cooking-steps-v1",
+  "generatedAt": "2026-06-26",
+  "actionKeyPool": [
+    { "actionKey": "prep_ingredients", "zhName": "准备食材", "fallbackIcon": "basket-outline", "shortHint": "把要用的食材和调料放到手边。", "sortOrder": 10 },
+    { "actionKey": "wash_ingredients", "zhName": "清洗食材", "fallbackIcon": "water-outline", "shortHint": "冲洗并沥干需要清洗的食材。", "sortOrder": 20 },
+    { "actionKey": "slice_vegetables", "zhName": "切蔬菜", "fallbackIcon": "cut-outline", "shortHint": "把蔬菜切成适合入口和受热的大小。", "sortOrder": 30 },
+    { "actionKey": "cut_meat", "zhName": "切肉类", "fallbackIcon": "cut-outline", "shortHint": "顺着菜品需要处理肉类厚薄。", "sortOrder": 40 },
+    { "actionKey": "mix_sauce", "zhName": "调酱汁", "fallbackIcon": "beaker-outline", "shortHint": "把调味料提前混合均匀。", "sortOrder": 50 },
+    { "actionKey": "marinate", "zhName": "腌制", "fallbackIcon": "time-outline", "shortHint": "让食材先吸收基础味道。", "sortOrder": 60 },
+    { "actionKey": "beat_eggs", "zhName": "打蛋", "fallbackIcon": "ellipse-outline", "shortHint": "把鸡蛋搅散到蛋清蛋黄融合。", "sortOrder": 70 },
+    { "actionKey": "boil_water", "zhName": "烧水", "fallbackIcon": "flame-outline", "shortHint": "把水加热到需要的状态。", "sortOrder": 80 },
+    { "actionKey": "cook_rice", "zhName": "煮饭", "fallbackIcon": "restaurant-outline", "shortHint": "用电饭煲或锅把米饭煮好。", "sortOrder": 90 },
+    { "actionKey": "heat_pan", "zhName": "热锅", "fallbackIcon": "flame-outline", "shortHint": "先让锅面达到适合下料的温度。", "sortOrder": 100 },
+    { "actionKey": "add_oil", "zhName": "加油", "fallbackIcon": "water-outline", "shortHint": "加入适量油并铺开锅底。", "sortOrder": 110 },
+    { "actionKey": "saute_aromatics", "zhName": "爆香", "fallbackIcon": "sparkles-outline", "shortHint": "把葱姜蒜等香味炒出来。", "sortOrder": 120 },
+    { "actionKey": "stir_fry", "zhName": "翻炒", "fallbackIcon": "swap-vertical-outline", "shortHint": "持续翻动，让食材均匀受热。", "sortOrder": 130 },
+    { "actionKey": "pan_fry", "zhName": "煎制", "fallbackIcon": "ellipse-outline", "shortHint": "让食材底面形成颜色和质感。", "sortOrder": 140 },
+    { "actionKey": "sear_meat", "zhName": "煎肉", "fallbackIcon": "flame-outline", "shortHint": "先把肉类表面煎到变色定型。", "sortOrder": 150 },
+    { "actionKey": "scramble_eggs", "zhName": "炒蛋", "fallbackIcon": "egg-outline", "shortHint": "把蛋液炒成柔软蛋块。", "sortOrder": 160 },
+    { "actionKey": "simmer", "zhName": "炖煮", "fallbackIcon": "hourglass-outline", "shortHint": "小火让食材和汤汁慢慢融合。", "sortOrder": 170 },
+    { "actionKey": "boil_noodles", "zhName": "煮面", "fallbackIcon": "restaurant-outline", "shortHint": "把面条煮到适合入口的口感。", "sortOrder": 180 },
+    { "actionKey": "steam", "zhName": "蒸制", "fallbackIcon": "cloud-outline", "shortHint": "用蒸汽加热食材。", "sortOrder": 190 },
+    { "actionKey": "microwave", "zhName": "微波", "fallbackIcon": "radio-outline", "shortHint": "用微波炉快速加热。", "sortOrder": 200 },
+    { "actionKey": "air_fry", "zhName": "空气炸", "fallbackIcon": "aperture-outline", "shortHint": "用空气炸锅加热到表面变干爽。", "sortOrder": 210 },
+    { "actionKey": "bake", "zhName": "烘烤", "fallbackIcon": "square-outline", "shortHint": "用烤箱稳定加热。", "sortOrder": 220 },
+    { "actionKey": "combine_ingredients", "zhName": "混合", "fallbackIcon": "git-merge-outline", "shortHint": "把食材合在一起拌匀或合炒。", "sortOrder": 230 },
+    { "actionKey": "toss_salad", "zhName": "拌沙拉", "fallbackIcon": "leaf-outline", "shortHint": "轻拌冷食食材和酱汁。", "sortOrder": 240 },
+    { "actionKey": "season", "zhName": "调味", "fallbackIcon": "color-wand-outline", "shortHint": "补充盐味、鲜味、酸甜或香气。", "sortOrder": 250 },
+    { "actionKey": "plate_dish", "zhName": "装盘", "fallbackIcon": "disc-outline", "shortHint": "把菜盛出并整理外观。", "sortOrder": 260 },
+    { "actionKey": "check_doneness", "zhName": "检查状态", "fallbackIcon": "checkmark-circle-outline", "shortHint": "观察颜色、质地、汤汁和口感状态。", "sortOrder": 270 },
+    { "actionKey": "rest_food", "zhName": "静置", "fallbackIcon": "pause-circle-outline", "shortHint": "让食材短暂回温或吸收味道。", "sortOrder": 280 }
+  ],
+  "recipes": [
+    {
+      "recipeKey": "tomato_egg_stir_fry",
+      "zhName": "番茄炒蛋",
+      "needsReview": false,
+      "recipeSteps": [
+        {
+          "stepNumber": 1,
+          "title": "处理食材",
+          "body": "番茄切成小块，鸡蛋打散，葱花备好，番茄块大小尽量接近。",
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "ingredientKeys": ["tomato", "egg", "scallion"],
+          "equipmentKeys": ["knife", "cutting_board", "bowl"]
+        },
+        {
+          "stepNumber": 2,
+          "title": "先炒鸡蛋",
+          "body": "热锅加油后倒入蛋液，推成柔软蛋块，表面刚凝固时盛出。",
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "ingredientKeys": ["egg"],
+          "equipmentKeys": ["stove_or_hotplate", "frying_pan_or_wok", "spatula"]
+        },
+        {
+          "stepNumber": 3,
+          "title": "炒软番茄",
+          "body": "锅中补少量油，下番茄翻炒，边缘变软并有少量汁水时调味。",
+          "estimatedMinutes": 5,
+          "timerSeconds": null,
+          "ingredientKeys": ["tomato"],
+          "equipmentKeys": ["stove_or_hotplate", "frying_pan_or_wok", "spatula"]
+        },
+        {
+          "stepNumber": 4,
+          "title": "合炒装盘",
+          "body": "倒回鸡蛋轻轻翻匀，蛋块裹到番茄汁后撒葱花，盛出即可。",
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "ingredientKeys": ["tomato", "egg", "scallion"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula", "plate"]
+        }
+      ],
+      "tutorialSteps": [
+        {
+          "stepNumber": 1,
+          "title": "切配番茄",
+          "body": "番茄去蒂后切成小块，尽量大小接近，看到果肉和汁水都集中在案板上即可。",
+          "actionKey": "slice_vegetables",
+          "ingredientKeys": ["tomato"],
+          "equipmentKeys": ["knife", "cutting_board"],
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "assistantContext": "可提醒用户番茄不必去皮；如果喜欢更多汤汁，可以切得稍小。"
+        },
+        {
+          "stepNumber": 2,
+          "title": "打散鸡蛋",
+          "body": "鸡蛋打入碗中搅到蛋清蛋黄融合，筷子提起时没有明显透明蛋清即可。",
+          "actionKey": "beat_eggs",
+          "ingredientKeys": ["egg"],
+          "equipmentKeys": ["bowl", "chopsticks_or_fork"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "可建议加一小撮盐帮助底味，但不强制。"
+        },
+        {
+          "stepNumber": 3,
+          "title": "炒出蛋块",
+          "body": "锅热后加油倒入蛋液，用锅铲轻推成大块，表面刚凝固且仍柔软时盛出。",
+          "actionKey": "scramble_eggs",
+          "ingredientKeys": ["egg"],
+          "equipmentKeys": ["stove_or_hotplate", "frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "assistantContext": "如果蛋块过碎，提醒下次减少翻动；如果锅太干可补少量油。"
+        },
+        {
+          "stepNumber": 4,
+          "title": "炒软番茄",
+          "body": "锅中下番茄翻炒，看到边缘变软、锅底出现橙红汁水时再进入调味。",
+          "actionKey": "stir_fry",
+          "ingredientKeys": ["tomato"],
+          "equipmentKeys": ["stove_or_hotplate", "frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "番茄较硬时可加一两勺水帮助出汁。"
+        },
+        {
+          "stepNumber": 5,
+          "title": "合炒调味",
+          "body": "把鸡蛋倒回锅中，加盐轻轻翻匀，蛋块裹上番茄汁但没有被压碎即可。",
+          "actionKey": "combine_ingredients",
+          "ingredientKeys": ["tomato", "egg"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "可根据酸度建议少量糖，但不默认要求。"
+        },
+        {
+          "stepNumber": 6,
+          "title": "装盘检查",
+          "body": "撒葱花后盛出，观察蛋块柔软、番茄有汁但不水汪汪，就是适合出锅的状态。",
+          "actionKey": "plate_dish",
+          "ingredientKeys": ["tomato", "egg", "scallion"],
+          "equipmentKeys": ["plate", "spatula"],
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "assistantContext": "可提示用户如果汤汁太多，出锅前大火轻收十几秒。"
+        }
+      ]
+    },
+    {
+      "recipeKey": "garlic_broccoli",
+      "zhName": "蒜香西兰花",
+      "needsReview": false,
+      "recipeSteps": [
+        {
+          "stepNumber": 1,
+          "title": "清洗切分",
+          "body": "西兰花切成小朵，冲洗后沥干，蒜切末备用。",
+          "estimatedMinutes": 5,
+          "timerSeconds": null,
+          "ingredientKeys": ["broccoli", "garlic"],
+          "equipmentKeys": ["knife", "cutting_board"]
+        },
+        {
+          "stepNumber": 2,
+          "title": "焯水断生",
+          "body": "水开后下西兰花，颜色变得更亮时捞出沥干。",
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "ingredientKeys": ["broccoli"],
+          "equipmentKeys": ["pot", "stove_or_hotplate"]
+        },
+        {
+          "stepNumber": 3,
+          "title": "蒜香快炒",
+          "body": "热锅加油炒香蒜末，倒入西兰花翻炒到表面均匀挂油。",
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "ingredientKeys": ["broccoli", "garlic"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"]
+        },
+        {
+          "stepNumber": 4,
+          "title": "调味出锅",
+          "body": "加盐调味，西兰花仍有脆感且蒜香明显时盛出。",
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "ingredientKeys": ["broccoli", "garlic"],
+          "equipmentKeys": ["plate", "spatula"]
+        }
+      ],
+      "tutorialSteps": [
+        {
+          "stepNumber": 1,
+          "title": "切分西兰花",
+          "body": "西兰花切成入口大小的小朵，粗梗可削去外皮切片，大小接近更容易同步变软。",
+          "actionKey": "slice_vegetables",
+          "ingredientKeys": ["broccoli"],
+          "equipmentKeys": ["knife", "cutting_board"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "可说明粗梗能吃，只要去掉较硬外皮。"
+        },
+        {
+          "stepNumber": 2,
+          "title": "冲洗沥干",
+          "body": "用水冲洗花蕾缝隙，甩掉多余水分，表面不再滴水时下锅更不容易溅油。",
+          "actionKey": "wash_ingredients",
+          "ingredientKeys": ["broccoli"],
+          "equipmentKeys": ["bowl"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "如果没有沥水篮，可用厨房纸或轻甩碗边处理。"
+        },
+        {
+          "stepNumber": 3,
+          "title": "焯到亮绿",
+          "body": "水开后放入西兰花，颜色转亮绿、梗部略微变透时捞出，不需要煮到软塌。",
+          "actionKey": "boil_water",
+          "ingredientKeys": ["broccoli"],
+          "equipmentKeys": ["pot", "stove_or_hotplate"],
+          "estimatedMinutes": 3,
+          "timerSeconds": 90,
+          "assistantContext": "没有计时也可以用颜色和梗部透明感判断。"
+        },
+        {
+          "stepNumber": 4,
+          "title": "炒香蒜末",
+          "body": "热锅加油后放蒜末，小火到中火翻动，闻到蒜香且蒜末边缘微黄即可。",
+          "actionKey": "saute_aromatics",
+          "ingredientKeys": ["garlic"],
+          "equipmentKeys": ["stove_or_hotplate", "frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "蒜末容易焦，提醒用户闻到香味就可以下菜。"
+        },
+        {
+          "stepNumber": 5,
+          "title": "回锅调味",
+          "body": "倒入西兰花翻炒，加盐后让每朵表面都挂上蒜油，梗部仍有轻微脆感即可。",
+          "actionKey": "stir_fry",
+          "ingredientKeys": ["broccoli", "garlic"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula", "plate"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "如果锅底发干，可沿锅边加一小勺水。"
+        }
+      ]
+    },
+    {
+      "recipeKey": "beef_onion_stir_fry",
+      "zhName": "洋葱牛肉片",
+      "needsReview": false,
+      "recipeSteps": [
+        {
+          "stepNumber": 1,
+          "title": "切配腌肉",
+          "body": "洋葱切丝，牛肉片用少量酱油和淀粉拌匀，表面略有黏性即可。",
+          "estimatedMinutes": 8,
+          "timerSeconds": null,
+          "ingredientKeys": ["beef_slice", "onion", "soy_sauce", "cornstarch"],
+          "equipmentKeys": ["knife", "cutting_board", "bowl"]
+        },
+        {
+          "stepNumber": 2,
+          "title": "先煎牛肉",
+          "body": "热锅加油，下牛肉片摊开，表面大部分变色时先盛出。",
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "ingredientKeys": ["beef_slice"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"]
+        },
+        {
+          "stepNumber": 3,
+          "title": "炒软洋葱",
+          "body": "同锅下洋葱翻炒，边缘变透明并有甜香味时加调味。",
+          "estimatedMinutes": 5,
+          "timerSeconds": null,
+          "ingredientKeys": ["onion"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"]
+        },
+        {
+          "stepNumber": 4,
+          "title": "合炒收汁",
+          "body": "牛肉回锅与洋葱合炒，汁水轻轻挂在肉片上即可盛出。",
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "ingredientKeys": ["beef_slice", "onion"],
+          "equipmentKeys": ["frying_pan_or_wok", "plate"]
+        }
+      ],
+      "tutorialSteps": [
+        {
+          "stepNumber": 1,
+          "title": "切洋葱丝",
+          "body": "洋葱去皮后顺纹切丝，宽度尽量接近，看到半透明边缘时后面更容易炒软。",
+          "actionKey": "slice_vegetables",
+          "ingredientKeys": ["onion"],
+          "equipmentKeys": ["knife", "cutting_board"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "可提醒用户怕辣眼可先冷藏洋葱或刀口蘸水。"
+        },
+        {
+          "stepNumber": 2,
+          "title": "拌腌牛肉",
+          "body": "牛肉片加酱油和少量淀粉抓匀，表面从松散变得略有黏性时就可以停。",
+          "actionKey": "marinate",
+          "ingredientKeys": ["beef_slice", "soy_sauce", "cornstarch"],
+          "equipmentKeys": ["bowl"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "如果肉片很厚，可提示先切薄或延长静置几分钟。"
+        },
+        {
+          "stepNumber": 3,
+          "title": "调好碗汁",
+          "body": "把酱油、少量水和一点糖拌匀，尝起来咸鲜略带甜味，后面下锅会更均匀。",
+          "actionKey": "mix_sauce",
+          "ingredientKeys": ["soy_sauce", "sugar"],
+          "equipmentKeys": ["bowl", "spoon"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "可根据用户口味建议加黑胡椒或蚝油。"
+        },
+        {
+          "stepNumber": 4,
+          "title": "热锅摊肉",
+          "body": "锅热后加油，放入牛肉片尽量摊开，底面变色后再翻动，避免一开始就出水。",
+          "actionKey": "sear_meat",
+          "ingredientKeys": ["beef_slice"],
+          "equipmentKeys": ["stove_or_hotplate", "frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "assistantContext": "如果锅小，建议分两次煎肉，减少拥挤出水。"
+        },
+        {
+          "stepNumber": 5,
+          "title": "盛出牛肉",
+          "body": "牛肉表面大部分变色、仍有少量柔软弹性时先盛出，盘底有少量肉汁也保留。",
+          "actionKey": "rest_food",
+          "ingredientKeys": ["beef_slice"],
+          "equipmentKeys": ["plate", "spatula"],
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "assistantContext": "不要在此处强调完全成熟，以最终回锅状态为准。"
+        },
+        {
+          "stepNumber": 6,
+          "title": "炒软洋葱",
+          "body": "同锅下洋葱翻炒，洋葱边缘变透明、体积略缩小时，说明甜味开始出来。",
+          "actionKey": "stir_fry",
+          "ingredientKeys": ["onion"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "喜欢脆口可少炒一会儿，喜欢甜软可多炒到颜色微黄。"
+        },
+        {
+          "stepNumber": 7,
+          "title": "倒入碗汁",
+          "body": "把碗汁沿锅边倒入，看到锅底出现小泡并裹住洋葱，就可以让牛肉回锅。",
+          "actionKey": "season",
+          "ingredientKeys": ["soy_sauce", "onion"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "assistantContext": "可解释沿锅边下汁能减少局部过咸。"
+        },
+        {
+          "stepNumber": 8,
+          "title": "牛肉回锅",
+          "body": "倒回牛肉和盘底肉汁，快速翻到肉片和洋葱都沾上酱汁，锅底不应大量积水。",
+          "actionKey": "combine_ingredients",
+          "ingredientKeys": ["beef_slice", "onion"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "如果汁多可开大一点火短暂收浓。"
+        },
+        {
+          "stepNumber": 9,
+          "title": "检查出锅",
+          "body": "夹起一片牛肉，表面有光泽、洋葱软而不断，酱汁能薄薄挂住即可装盘。",
+          "actionKey": "check_doneness",
+          "ingredientKeys": ["beef_slice", "onion"],
+          "equipmentKeys": ["plate", "spatula"],
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "assistantContext": "如果用户担心肉片状态，可建议切开最厚一片观察颜色和汁水。"
+        }
+      ]
+    },
+    {
+      "recipeKey": "tomato_mushroom_pasta",
+      "zhName": "番茄蘑菇意面",
+      "needsReview": false,
+      "recipeSteps": [
+        {
+          "stepNumber": 1,
+          "title": "切配食材",
+          "body": "番茄切块，蘑菇切片，蒜切末，意面和调味放到手边。",
+          "estimatedMinutes": 6,
+          "timerSeconds": null,
+          "ingredientKeys": ["tomato", "mushroom", "garlic", "pasta"],
+          "equipmentKeys": ["knife", "cutting_board"]
+        },
+        {
+          "stepNumber": 2,
+          "title": "煮到带芯",
+          "body": "沸水下意面，煮到中间略有硬芯时捞出，留一点煮面水。",
+          "estimatedMinutes": 9,
+          "timerSeconds": null,
+          "ingredientKeys": ["pasta"],
+          "equipmentKeys": ["pot", "stove_or_hotplate"]
+        },
+        {
+          "stepNumber": 3,
+          "title": "炒出酱底",
+          "body": "蒜末炒香后下蘑菇和番茄，炒到番茄出汁、蘑菇变软。",
+          "estimatedMinutes": 8,
+          "timerSeconds": null,
+          "ingredientKeys": ["garlic", "mushroom", "tomato"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"]
+        },
+        {
+          "stepNumber": 4,
+          "title": "拌面收汁",
+          "body": "意面入锅和酱底翻匀，加入少量煮面水，酱汁能挂住面条时装盘。",
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "ingredientKeys": ["pasta", "tomato", "mushroom"],
+          "equipmentKeys": ["frying_pan_or_wok", "tongs", "plate"]
+        }
+      ],
+      "tutorialSteps": [
+        {
+          "stepNumber": 1,
+          "title": "准备配菜",
+          "body": "番茄切块，蘑菇切片，蒜切末，切好的食材分开放，后面下锅顺序会更清楚。",
+          "actionKey": "prep_ingredients",
+          "ingredientKeys": ["tomato", "mushroom", "garlic"],
+          "equipmentKeys": ["knife", "cutting_board"],
+          "estimatedMinutes": 6,
+          "timerSeconds": null,
+          "assistantContext": "可提醒蘑菇不要切太薄，避免炒后缩水过多。"
+        },
+        {
+          "stepNumber": 2,
+          "title": "烧开面水",
+          "body": "锅中加足量水，水面持续冒大泡时再下面条，这样面条不容易粘在一起。",
+          "actionKey": "boil_water",
+          "ingredientKeys": [],
+          "equipmentKeys": ["pot", "stove_or_hotplate"],
+          "estimatedMinutes": 5,
+          "timerSeconds": null,
+          "assistantContext": "可建议水中加少量盐帮助面条有底味。"
+        },
+        {
+          "stepNumber": 3,
+          "title": "煮好意面",
+          "body": "放入意面后轻轻拨散，煮到外层变软、中间仍略有硬芯时准备捞出。",
+          "actionKey": "boil_noodles",
+          "ingredientKeys": ["pasta"],
+          "equipmentKeys": ["pot", "tongs"],
+          "estimatedMinutes": 8,
+          "timerSeconds": null,
+          "assistantContext": "按包装时间少一两分钟检查，后面还会入锅吸汁。"
+        },
+        {
+          "stepNumber": 4,
+          "title": "保留面水",
+          "body": "捞面前舀出半碗煮面水，水里带有淀粉感，后面能帮助酱汁贴住面条。",
+          "actionKey": "prep_ingredients",
+          "ingredientKeys": ["pasta"],
+          "equipmentKeys": ["bowl", "ladle"],
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "assistantContext": "如果忘记留面水，可用少量热水替代，但挂汁感会弱一点。"
+        },
+        {
+          "stepNumber": 5,
+          "title": "炒香蒜末",
+          "body": "平底锅加油后下蒜末，小火到中火炒到香味出来、蒜末边缘微黄即可。",
+          "actionKey": "saute_aromatics",
+          "ingredientKeys": ["garlic"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "蒜焦会发苦，提醒闻到香味就下蘑菇。"
+        },
+        {
+          "stepNumber": 6,
+          "title": "炒软蘑菇",
+          "body": "加入蘑菇片翻炒，看到蘑菇颜色加深、边缘变软并略微出水时下番茄。",
+          "actionKey": "stir_fry",
+          "ingredientKeys": ["mushroom"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "蘑菇刚下锅会显得多，变软缩水后再加番茄更好炒。"
+        },
+        {
+          "stepNumber": 7,
+          "title": "炒出番茄汁",
+          "body": "倒入番茄块翻炒，番茄边缘塌下并在锅底形成红色汁水时开始调味。",
+          "actionKey": "simmer",
+          "ingredientKeys": ["tomato"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"],
+          "estimatedMinutes": 5,
+          "timerSeconds": null,
+          "assistantContext": "番茄偏硬时可加少量面水并盖盖焖一会儿。"
+        },
+        {
+          "stepNumber": 8,
+          "title": "拌入意面",
+          "body": "把意面放入锅中，加少量面水翻拌，面条表面均匀裹上红色酱汁即可。",
+          "actionKey": "combine_ingredients",
+          "ingredientKeys": ["pasta", "tomato", "mushroom"],
+          "equipmentKeys": ["frying_pan_or_wok", "tongs"],
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "assistantContext": "如果太干就少量多次加面水，不要一次倒太多。"
+        },
+        {
+          "stepNumber": 9,
+          "title": "调味装盘",
+          "body": "尝一下面条，加盐和黑胡椒调整，酱汁能挂住面条且锅底不水时装盘。",
+          "actionKey": "plate_dish",
+          "ingredientKeys": ["pasta", "tomato", "mushroom", "black_pepper"],
+          "equipmentKeys": ["plate", "tongs"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "可建议加奶酪或橄榄油，但不作为必需步骤。"
+        }
+      ]
+    },
+    {
+      "recipeKey": "curry_chicken_rice",
+      "zhName": "咖喱鸡肉饭",
+      "needsReview": false,
+      "recipeSteps": [
+        {
+          "stepNumber": 1,
+          "title": "切配食材",
+          "body": "鸡腿肉、土豆、胡萝卜和洋葱切成接近入口的块，米饭提前煮好。",
+          "estimatedMinutes": 10,
+          "timerSeconds": null,
+          "ingredientKeys": ["chicken_thigh", "potato", "carrot", "onion", "rice"],
+          "equipmentKeys": ["knife", "cutting_board", "rice_cooker"]
+        },
+        {
+          "stepNumber": 2,
+          "title": "煎香鸡肉",
+          "body": "锅中加油，鸡肉块煎到表面变色并有轻微焦香后盛出。",
+          "estimatedMinutes": 6,
+          "timerSeconds": null,
+          "ingredientKeys": ["chicken_thigh"],
+          "equipmentKeys": ["frying_pan_or_wok", "spatula"]
+        },
+        {
+          "stepNumber": 3,
+          "title": "炒蔬菜块",
+          "body": "洋葱炒出香味后加入土豆和胡萝卜，边缘略微变亮时加水。",
+          "estimatedMinutes": 6,
+          "timerSeconds": null,
+          "ingredientKeys": ["onion", "potato", "carrot"],
+          "equipmentKeys": ["pot", "spatula"]
+        },
+        {
+          "stepNumber": 4,
+          "title": "炖煮咖喱",
+          "body": "鸡肉回锅，加水炖到土豆能被筷子轻松插入，再融入咖喱块。",
+          "estimatedMinutes": 15,
+          "timerSeconds": null,
+          "ingredientKeys": ["chicken_thigh", "potato", "carrot", "curry_blocks"],
+          "equipmentKeys": ["pot", "ladle"]
+        },
+        {
+          "stepNumber": 5,
+          "title": "盖饭装盘",
+          "body": "咖喱汁浓稠能挂住勺背时，浇在米饭旁边或上方即可。",
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "ingredientKeys": ["rice", "curry_blocks"],
+          "equipmentKeys": ["plate", "ladle"]
+        }
+      ],
+      "tutorialSteps": [
+        {
+          "stepNumber": 1,
+          "title": "先煮米饭",
+          "body": "按日常比例淘米加水开始煮饭，看到电饭煲进入保温后，米饭就能等待咖喱完成。",
+          "actionKey": "cook_rice",
+          "ingredientKeys": ["rice"],
+          "equipmentKeys": ["rice_cooker", "measuring_cup"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "如果已有剩饭，可跳过煮饭并在最后加热米饭。"
+        },
+        {
+          "stepNumber": 2,
+          "title": "切鸡肉块",
+          "body": "鸡腿肉切成一口大小，厚薄尽量接近，看到大块筋膜可顺手切掉。",
+          "actionKey": "cut_meat",
+          "ingredientKeys": ["chicken_thigh"],
+          "equipmentKeys": ["knife", "cutting_board"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "可提示用鸡胸肉替代时后续炖煮时间要略短。"
+        },
+        {
+          "stepNumber": 3,
+          "title": "切蔬菜块",
+          "body": "土豆、胡萝卜和洋葱切成接近大小的块，土豆块边角不用太规整。",
+          "actionKey": "slice_vegetables",
+          "ingredientKeys": ["potato", "carrot", "onion"],
+          "equipmentKeys": ["knife", "cutting_board"],
+          "estimatedMinutes": 6,
+          "timerSeconds": null,
+          "assistantContext": "土豆块比胡萝卜略大也可以，因为土豆更容易变软。"
+        },
+        {
+          "stepNumber": 4,
+          "title": "热锅加油",
+          "body": "锅热后加油，转动锅让油铺开，油面有轻微流动感时准备下鸡肉。",
+          "actionKey": "add_oil",
+          "ingredientKeys": [],
+          "equipmentKeys": ["stove_or_hotplate", "pot"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "用深锅更方便后续直接炖煮。"
+        },
+        {
+          "stepNumber": 5,
+          "title": "煎香鸡肉",
+          "body": "鸡肉块下锅摊开，表面从粉色变浅并出现少量焦黄边缘时翻动。",
+          "actionKey": "sear_meat",
+          "ingredientKeys": ["chicken_thigh"],
+          "equipmentKeys": ["pot", "spatula"],
+          "estimatedMinutes": 5,
+          "timerSeconds": null,
+          "assistantContext": "如果锅底有粘连，等表面定型后再翻会更容易。"
+        },
+        {
+          "stepNumber": 6,
+          "title": "盛出鸡肉",
+          "body": "鸡肉外侧基本变色后先盛出，锅底留下的油和焦香会继续用来炒蔬菜。",
+          "actionKey": "rest_food",
+          "ingredientKeys": ["chicken_thigh"],
+          "equipmentKeys": ["plate", "spatula"],
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "assistantContext": "避免在此处把鸡肉完全炖到位，因为后面还会回锅。"
+        },
+        {
+          "stepNumber": 7,
+          "title": "炒香洋葱",
+          "body": "同锅放洋葱翻炒，洋葱边缘变透明并闻到甜香味时，加入土豆和胡萝卜。",
+          "actionKey": "saute_aromatics",
+          "ingredientKeys": ["onion"],
+          "equipmentKeys": ["pot", "spatula"],
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "assistantContext": "洋葱不用炒焦，透明和香味是主要判断。"
+        },
+        {
+          "stepNumber": 8,
+          "title": "翻炒根茎",
+          "body": "加入土豆和胡萝卜翻炒，表面均匀沾油、边缘颜色变亮时就可以加水。",
+          "actionKey": "stir_fry",
+          "ingredientKeys": ["potato", "carrot"],
+          "equipmentKeys": ["pot", "spatula"],
+          "estimatedMinutes": 4,
+          "timerSeconds": null,
+          "assistantContext": "这一步不是炒熟，而是让蔬菜表面先受热。"
+        },
+        {
+          "stepNumber": 9,
+          "title": "加水炖煮",
+          "body": "倒入水没过大部分食材，鸡肉回锅，汤面轻轻冒泡后转中小火炖。",
+          "actionKey": "simmer",
+          "ingredientKeys": ["chicken_thigh", "potato", "carrot"],
+          "equipmentKeys": ["pot", "ladle"],
+          "estimatedMinutes": 10,
+          "timerSeconds": 600,
+          "assistantContext": "水量以能炖软食材为准，不需要特别多。"
+        },
+        {
+          "stepNumber": 10,
+          "title": "检查软度",
+          "body": "用筷子戳土豆和胡萝卜，能比较轻松插入且边缘略圆润时，可以放咖喱块。",
+          "actionKey": "check_doneness",
+          "ingredientKeys": ["potato", "carrot"],
+          "equipmentKeys": ["pot", "chopsticks_or_fork"],
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "assistantContext": "如果戳不进去，继续炖几分钟再检查。"
+        },
+        {
+          "stepNumber": 11,
+          "title": "融化咖喱",
+          "body": "关小火放入咖喱块，慢慢搅到看不见硬块，汤汁颜色均匀后再开火。",
+          "actionKey": "season",
+          "ingredientKeys": ["curry_blocks"],
+          "equipmentKeys": ["pot", "ladle"],
+          "estimatedMinutes": 3,
+          "timerSeconds": null,
+          "assistantContext": "咖喱块直接大火容易粘底，提醒先小火融化。"
+        },
+        {
+          "stepNumber": 12,
+          "title": "收浓咖喱",
+          "body": "重新小火加热并搅动，咖喱能挂住勺背、锅底划开后缓慢合拢即可。",
+          "actionKey": "simmer",
+          "ingredientKeys": ["curry_blocks", "chicken_thigh", "potato", "carrot"],
+          "equipmentKeys": ["pot", "ladle"],
+          "estimatedMinutes": 5,
+          "timerSeconds": null,
+          "assistantContext": "太稠可加少量热水，太稀就多煮一会儿。"
+        },
+        {
+          "stepNumber": 13,
+          "title": "盛饭浇汁",
+          "body": "米饭盛入盘中，把咖喱浇在一侧或上方，鸡肉和蔬菜分布均匀即可上桌。",
+          "actionKey": "plate_dish",
+          "ingredientKeys": ["rice", "chicken_thigh", "potato", "carrot", "curry_blocks"],
+          "equipmentKeys": ["plate", "ladle"],
+          "estimatedMinutes": 2,
+          "timerSeconds": null,
+          "assistantContext": "可提示留一部分白饭露出，视觉上更清楚。"
+        }
+      ]
+    }
+  ]
+}
