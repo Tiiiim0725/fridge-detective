@@ -9,9 +9,11 @@ import {
   type ViewStyle,
 } from 'react-native'
 
+import { UI_TOP_BUTTON_SIZE } from '@/components/ui/design-tokens'
+
 type IoniconName = ComponentProps<typeof Ionicons>['name']
 
-export const FLOATING_TOP_BUTTON_SIZE = 48
+export const FLOATING_TOP_BUTTON_SIZE = UI_TOP_BUTTON_SIZE
 
 type FloatingTopButtonProps = {
   accessibilityLabel: string

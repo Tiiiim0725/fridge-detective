@@ -15,6 +15,7 @@ import { CookingAssistantPanel } from '@/components/cooking/CookingAssistantPane
 import { CookingSpeechControls } from '@/components/cooking/CookingSpeechControls'
 import { CookingStepTimer } from '@/components/cooking/CookingStepTimer'
 import { TutorialStepCard } from '@/components/cooking/TutorialStepCard'
+import { UI_PAGE_MAX_WIDTH, UI_PAGE_SIDE_PADDING } from '@/components/ui/design-tokens'
 import { FloatingTopButton, FLOATING_TOP_BUTTON_SIZE } from '@/components/ui/floating-top-button'
 import {
   COOKING_COLORS,
@@ -334,8 +335,8 @@ const styles = StyleSheet.create({
   },
   container: {
     alignSelf: 'center',
-    maxWidth: 760,
-    paddingHorizontal: 20,
+    maxWidth: UI_PAGE_MAX_WIDTH,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
     width: '100%',
   },
   topControls: {

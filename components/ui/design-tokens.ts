@@ -1,0 +1,9 @@
+export const UI_PAGE_MAX_WIDTH = 390
+export const UI_WEB_APP_MAX_WIDTH = 430
+export const UI_PAGE_SIDE_PADDING = 22
+export const UI_PAGE_SIDE_PADDING_COMPACT = 18
+export const UI_TOP_BAR_SIDE_PADDING = 22
+export const UI_TOP_BUTTON_SIZE = 48
+export const UI_CARD_RADIUS = UI_TOP_BUTTON_SIZE / 2
+export const UI_CONTROL_HEIGHT = UI_TOP_BUTTON_SIZE
+export const UI_PILL_RADIUS = UI_CONTROL_HEIGHT / 2

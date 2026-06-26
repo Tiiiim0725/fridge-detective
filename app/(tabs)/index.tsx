@@ -5,15 +5,26 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
+  type GestureResponderEvent,
   PanResponder,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  type PanResponderGestureState,
   View,
 } from 'react-native'
 
+import {
+  UI_CARD_RADIUS,
+  UI_PAGE_MAX_WIDTH,
+  UI_PAGE_SIDE_PADDING_COMPACT,
+  UI_TOP_BUTTON_SIZE,
+} from '@/components/ui/design-tokens'
 import { FloatingTopButton } from '@/components/ui/floating-top-button'
 import { getIngredientDictionary } from '@/services/ingredientService'
 import { getPersonalizedRecipeRecommendations } from '@/services/recommendationService'
@@ -23,19 +34,36 @@ import type {
 } from '@/types/recommendation'
 
 type LoadStatus = 'idle' | 'loading' | 'success' | 'error'
+type SwipeLikeEvent = {
+  nativeEvent?: unknown
+  pageY?: number
+  clientY?: number
+  touches?: ArrayLike<{ pageY?: number; clientY?: number }>
+  changedTouches?: ArrayLike<{ pageY?: number; clientY?: number }>
+}
 
 type OrbitDish = {
   item: RecipeRecommendationResult
   slot: -1 | 0 | 1
 }
 
-const PHONE_CANVAS_WIDTH = 430
+const PHONE_CANVAS_WIDTH = UI_PAGE_MAX_WIDTH
 const PHONE_CANVAS_MIN_HEIGHT = 900
 const ORBIT_DRAG_DISTANCE = 210
 const ORBIT_SIDE_X = 238
 const ORBIT_SIDE_Y = 104
 const ORBIT_SIDE_ROTATION = 15
 const ORBIT_RELEASE_THRESHOLD = 0.34
+const RECIPE_SHEET_TOUCH_RELEASE_DISTANCE = 30
+const RECIPE_SHEET_OPEN_DURATION_MS = 560
+const RECIPE_SHEET_OPEN_START_Y = PHONE_CANVAS_MIN_HEIGHT - 230
+const recipeSheetWebTouchStyle = Platform.OS === 'web'
+  ? ({
+      touchAction: 'none',
+      userSelect: 'none',
+      WebkitUserSelect: 'none',
+    } as const)
+  : null
 
 const difficultyLabels: Record<string, string> = {
   beginner: '新手',
@@ -106,6 +134,20 @@ function loopIndex(index: number, length: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
+}
+
+function readSwipeEventY(event: unknown): number | null {
+  const maybeEvent = event as SwipeLikeEvent | null
+  const nativeEvent = (maybeEvent?.nativeEvent ?? maybeEvent) as SwipeLikeEvent | null
+  const firstTouch = nativeEvent?.touches?.[0] ?? nativeEvent?.changedTouches?.[0]
+  const value = firstTouch?.pageY
+    ?? firstTouch?.clientY
+    ?? nativeEvent?.pageY
+    ?? nativeEvent?.clientY
+    ?? maybeEvent?.pageY
+    ?? maybeEvent?.clientY
+
+  return typeof value === 'number' ? value : null
 }
 
 function getOrbitPlateTransform(slot: -1 | 0 | 1, dragProgress: number) {
@@ -187,7 +229,11 @@ export default function HomeScreen() {
   const [ingredientNameByKey, setIngredientNameByKey] = useState<Map<string, string>>(new Map())
   const [activeIndex, setActiveIndex] = useState(0)
   const [dragProgress, setDragProgress] = useState(0)
+  const [openingRecipe, setOpeningRecipe] = useState<RecipeRecommendationResult | null>(null)
   const hasLoadedOnceRef = useRef(false)
+  const recipeSheetTouchStartYRef = useRef<number | null>(null)
+  const recipeOpenProgressRef = useRef(new Animated.Value(0))
+  const isRecipeOpeningRef = useRef(false)
 
   const loadRecommendations = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     if (mode === 'refresh') {
@@ -267,11 +313,92 @@ export default function HomeScreen() {
       return
     }
 
-    router.push({
-      pathname: '/recipe/[recipeKey]',
-      params: { recipeKey: currentItem.recipe.recipeKey },
+    if (isRecipeOpeningRef.current) {
+      return
+    }
+
+    isRecipeOpeningRef.current = true
+    setOpeningRecipe(currentItem)
+    recipeOpenProgressRef.current.setValue(0)
+
+    Animated.timing(recipeOpenProgressRef.current, {
+      toValue: 1,
+      duration: RECIPE_SHEET_OPEN_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(() => {
+      router.push({
+        pathname: '/recipe/[recipeKey]',
+        params: { recipeKey: currentItem.recipe.recipeKey },
+      })
+
+      setTimeout(() => {
+        setOpeningRecipe(null)
+        recipeOpenProgressRef.current.setValue(0)
+        isRecipeOpeningRef.current = false
+      }, 180)
     })
   }, [currentItem, router])
+
+  const handleRecipeSheetRelease = useCallback((gestureState: PanResponderGestureState) => {
+    const shouldOpenRecipe = gestureState.dy < -42 || gestureState.vy < -0.5
+
+    if (shouldOpenRecipe) {
+      openCurrentRecipe()
+    }
+  }, [openCurrentRecipe])
+
+  const handleRecipeSheetTouchStart = useCallback((event: GestureResponderEvent) => {
+    recipeSheetTouchStartYRef.current = readSwipeEventY(event)
+  }, [])
+
+  const handleRecipeSheetSwipeEnd = useCallback((event: unknown) => {
+    const startY = recipeSheetTouchStartYRef.current
+    recipeSheetTouchStartYRef.current = null
+
+    if (startY === null) {
+      return
+    }
+
+    const endY = readSwipeEventY(event)
+
+    if (endY === null) {
+      return
+    }
+
+    const deltaY = endY - startY
+
+    if (deltaY < -RECIPE_SHEET_TOUCH_RELEASE_DISTANCE) {
+      openCurrentRecipe()
+    }
+  }, [openCurrentRecipe])
+
+  const handleRecipeSheetTouchEnd = useCallback((event: GestureResponderEvent) => {
+    handleRecipeSheetSwipeEnd(event)
+  }, [handleRecipeSheetSwipeEnd])
+
+  const recipeSheetWebSwipeHandlers = useMemo(() => {
+    if (Platform.OS !== 'web') {
+      return null
+    }
+
+    return {
+      onPointerDown: (event: unknown) => {
+        recipeSheetTouchStartYRef.current = readSwipeEventY(event)
+      },
+      onPointerCancel: () => {
+        recipeSheetTouchStartYRef.current = null
+      },
+      onPointerUp: handleRecipeSheetSwipeEnd,
+      onMouseDown: (event: unknown) => {
+        recipeSheetTouchStartYRef.current = readSwipeEventY(event)
+      },
+      onMouseLeave: () => {
+        recipeSheetTouchStartYRef.current = null
+      },
+      onMouseUp: handleRecipeSheetSwipeEnd,
+    } as Record<string, unknown>
+  }, [handleRecipeSheetSwipeEnd])
 
   const recipeSheetPanResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -285,13 +412,14 @@ export default function HomeScreen() {
       && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.05
     ),
     onPanResponderRelease: (_event, gestureState) => {
-      const shouldOpenRecipe = gestureState.dy < -42 || gestureState.vy < -0.5
-
-      if (shouldOpenRecipe) {
-        openCurrentRecipe()
-      }
+      handleRecipeSheetRelease(gestureState)
     },
-  }), [openCurrentRecipe])
+    onPanResponderTerminate: (_event, gestureState) => {
+      handleRecipeSheetRelease(gestureState)
+    },
+    onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => true,
+  }), [handleRecipeSheetRelease])
 
   const panResponder = useMemo(() => PanResponder.create({
     onPanResponderGrant: () => {
@@ -326,6 +454,25 @@ export default function HomeScreen() {
       setDragProgress(0)
     },
   }), [goNext, goPrevious, recommendations.length])
+
+  const openingRecipeSheetStyle = {
+    borderTopLeftRadius: recipeOpenProgressRef.current.interpolate({
+      inputRange: [0, 1],
+      outputRange: [360, 0],
+    }),
+    borderTopRightRadius: recipeOpenProgressRef.current.interpolate({
+      inputRange: [0, 1],
+      outputRange: [360, 0],
+    }),
+    transform: [
+      {
+        translateY: recipeOpenProgressRef.current.interpolate({
+          inputRange: [0, 1],
+          outputRange: [RECIPE_SHEET_OPEN_START_Y, 0],
+        }),
+      },
+    ],
+  }
 
   return (
     <ScrollView
@@ -424,10 +571,7 @@ export default function HomeScreen() {
                       return
                     }
 
-                    router.push({
-                      pathname: '/recipe/[recipeKey]',
-                      params: { recipeKey: dish.item.recipe.recipeKey },
-                    })
+                    openCurrentRecipe()
                   }}
                   style={({ pressed }) => [
                     styles.orbitPlate,
@@ -477,7 +621,16 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          <View style={styles.recipeSheetFrame} {...recipeSheetPanResponder.panHandlers}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="查看当前菜谱完整做法"
+            onPress={openCurrentRecipe}
+            onTouchStart={handleRecipeSheetTouchStart}
+            onTouchEnd={handleRecipeSheetTouchEnd}
+            style={[styles.recipeSheetFrame, recipeSheetWebTouchStyle]}
+            {...recipeSheetPanResponder.panHandlers}
+            {...recipeSheetWebSwipeHandlers}
+          >
             <View style={styles.recipeSheetCircle} />
             <View style={styles.recipeSheetContent}>
               <View style={styles.recipeSheetHandle} />
@@ -501,8 +654,36 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
-          </View>
+          </Pressable>
         </View>
+      ) : null}
+
+      {openingRecipe ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.openingRecipeOverlay, openingRecipeSheetStyle]}
+        >
+          <View style={styles.openingRecipeHandle} />
+          <Text style={styles.openingRecipeKicker}>正在展开完整做法</Text>
+          <Text style={styles.openingRecipeTitle} numberOfLines={2}>
+            {openingRecipe.recipe.zhName}
+          </Text>
+          <Text style={styles.openingRecipeBody} numberOfLines={3}>
+            {openingRecipe.recipe.description ?? currentReason}
+          </Text>
+          <View style={styles.openingRecipeMetaRow}>
+            <View style={styles.recipeSheetMetaPill}>
+              <Ionicons name="time-outline" size={14} color="#5f645f" />
+              <Text style={styles.recipeSheetMetaText}>{openingRecipe.recipe.totalTimeMinutes} 分钟</Text>
+            </View>
+            <View style={styles.recipeSheetMetaPill}>
+              <Ionicons name="restaurant-outline" size={14} color="#5f645f" />
+              <Text style={styles.recipeSheetMetaText}>
+                {difficultyLabels[openingRecipe.recipe.difficultyKey] ?? openingRecipe.recipe.difficultyKey}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
       ) : null}
     </ScrollView>
   )
@@ -518,8 +699,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f6efe7',
     maxWidth: PHONE_CANVAS_WIDTH,
     minHeight: PHONE_CANVAS_MIN_HEIGHT,
-    padding: 18,
+    overflow: 'hidden',
+    padding: UI_PAGE_SIDE_PADDING_COMPACT,
     paddingBottom: 122,
+    position: 'relative',
     width: '100%',
   },
   topBar: {
@@ -534,14 +717,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   topButtonSlot: {
-    height: 48,
-    width: 48,
+    height: UI_TOP_BUTTON_SIZE,
+    width: UI_TOP_BUTTON_SIZE,
   },
   updateNotice: {
     alignItems: 'center',
     backgroundColor: '#edf7f1',
     borderColor: '#c6dfd1',
-    borderRadius: 16,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
@@ -560,7 +743,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 22,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     gap: 8,
     marginTop: 34,
@@ -602,7 +785,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   cornerTopLeft: {
-    left: 0,
+    left: 12,
     maxWidth: '64%',
     position: 'absolute',
     top: 18,
@@ -624,13 +807,13 @@ const styles = StyleSheet.create({
   cornerTopRight: {
     alignItems: 'flex-end',
     position: 'absolute',
-    right: 0,
+    right: 12,
     top: 32,
     zIndex: 4,
   },
   cornerBottomLeft: {
     bottom: 176,
-    left: 0,
+    left: 4,
     maxWidth: '48%',
     position: 'absolute',
     zIndex: 4,
@@ -685,7 +868,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 486,
     justifyContent: 'flex-start',
-    marginHorizontal: -18,
+    marginHorizontal: 0,
     marginTop: 126,
     overflow: 'hidden',
     position: 'relative',
@@ -850,11 +1033,10 @@ const styles = StyleSheet.create({
   recipeSheetFrame: {
     alignSelf: 'center',
     height: 230,
-    marginHorizontal: -18,
     marginTop: -88,
     overflow: 'hidden',
     position: 'relative',
-    width: PHONE_CANVAS_WIDTH,
+    width: '100%',
   },
   recipeSheetHandle: {
     backgroundColor: '#c7c9c4',
@@ -899,5 +1081,57 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     maxWidth: 330,
     textAlign: 'center',
+  },
+  openingRecipeOverlay: {
+    alignItems: 'center',
+    backgroundColor: '#eceeeb',
+    borderColor: '#f8f5ee',
+    borderWidth: 1,
+    height: PHONE_CANVAS_MIN_HEIGHT,
+    left: 0,
+    paddingHorizontal: 42,
+    paddingTop: 72,
+    position: 'absolute',
+    right: 4,
+    top: 0,
+    zIndex: 80,
+  },
+  openingRecipeHandle: {
+    backgroundColor: '#c7c9c4',
+    borderRadius: 3,
+    height: 5,
+    marginBottom: 18,
+    width: 48,
+  },
+  openingRecipeKicker: {
+    color: '#7d8179',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0,
+    marginBottom: 10,
+  },
+  openingRecipeTitle: {
+    color: '#252722',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 0,
+    lineHeight: 38,
+    maxWidth: 340,
+    textAlign: 'center',
+  },
+  openingRecipeBody: {
+    color: '#5c5f5a',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+    marginTop: 12,
+    maxWidth: 330,
+    textAlign: 'center',
+  },
+  openingRecipeMetaRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 18,
   },
 })

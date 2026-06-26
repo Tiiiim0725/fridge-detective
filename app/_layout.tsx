@@ -12,6 +12,11 @@ import {
 } from 'react-native'
 import 'react-native-reanimated'
 
+import {
+  UI_CARD_RADIUS,
+  UI_TOP_BAR_SIDE_PADDING,
+  UI_WEB_APP_MAX_WIDTH,
+} from '@/components/ui/design-tokens'
 import { FloatingProfileButton } from '@/components/ui/floating-top-button'
 import { useColorScheme } from '@/hooks/use-color-scheme'
 import { AppSessionProvider, useAppSession } from '@/providers/AppSessionProvider'
@@ -121,11 +126,12 @@ const styles = StyleSheet.create({
   },
   webViewport: {
     backgroundColor: '#fff8f1',
-    width: 430,
+    maxWidth: UI_WEB_APP_MAX_WIDTH,
+    width: '100%',
   },
   globalProfileButton: {
     position: 'absolute',
-    right: 22,
+    right: UI_TOP_BAR_SIDE_PADDING,
     top: 28,
     zIndex: 90,
   },
@@ -166,7 +172,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderColor: '#eadfd5',
-    borderRadius: 20,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     maxWidth: 420,
     padding: 24,

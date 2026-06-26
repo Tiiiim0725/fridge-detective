@@ -4,6 +4,13 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { UserProfileFlow } from '@/app/dev-user-profile-check'
+import {
+  UI_CARD_RADIUS,
+  UI_CONTROL_HEIGHT,
+  UI_PAGE_MAX_WIDTH,
+  UI_PAGE_SIDE_PADDING,
+  UI_PILL_RADIUS,
+} from '@/components/ui/design-tokens'
 import { useAppSession } from '@/providers/AppSessionProvider'
 
 export default function OnboardingScreen() {
@@ -58,16 +65,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#faf5ee',
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: UI_PAGE_SIDE_PADDING,
   },
   card: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderColor: '#eadfd5',
-    borderRadius: 26,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
-    maxWidth: 520,
-    paddingHorizontal: 28,
+    maxWidth: UI_PAGE_MAX_WIDTH,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
     paddingVertical: 38,
     width: '100%',
   },
@@ -105,11 +112,11 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignItems: 'center',
     backgroundColor: '#c2652a',
-    borderRadius: 27,
+    borderRadius: UI_PILL_RADIUS,
     flexDirection: 'row',
     gap: 9,
     justifyContent: 'center',
-    minHeight: 54,
+    minHeight: UI_CONTROL_HEIGHT,
     width: '100%',
   },
   primaryButtonText: {
@@ -119,12 +126,12 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     alignItems: 'center',
-    borderRadius: 27,
+    borderRadius: UI_PILL_RADIUS,
     flexDirection: 'row',
     gap: 7,
     justifyContent: 'center',
     marginTop: 10,
-    minHeight: 54,
+    minHeight: UI_CONTROL_HEIGHT,
     width: '100%',
   },
   secondaryButtonText: {
