@@ -104,6 +104,11 @@ export async function getOrCreateCookingSession(recipeKey: string): Promise<Cook
 }
 
 export async function getLatestOpenCookingSession(): Promise<LatestCookingSession | null> {
+  const sessions = await getRecentOpenCookingSessions(1)
+  return sessions[0] ?? null
+}
+
+export async function getRecentOpenCookingSessions(limit = 8): Promise<LatestCookingSession[]> {
   const authUser = await ensureAuthUser()
 
   const { data, error } = await supabase
@@ -112,17 +117,32 @@ export async function getLatestOpenCookingSession(): Promise<LatestCookingSessio
     .eq('user_id', authUser.userId)
     .in('status', ['active', 'paused'])
     .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .limit(Math.max(limit * 3, limit))
 
-  if (error) throw toServiceError(error, 'Failed to query latest cooking session')
-  if (!data) return null
+  if (error) throw toServiceError(error, 'Failed to query recent cooking sessions')
 
-  const row = data as SessionRow
-  return {
-    ...mapSession(row),
-    recipeZhName: row.recipes?.zh_name ?? null,
+  const seenRecipeKeys = new Set<string>()
+  const sessions: LatestCookingSession[] = []
+
+  for (const row of (data ?? []) as SessionRow[]) {
+    const mapped = mapSession(row)
+
+    if (!mapped.recipeKey || seenRecipeKeys.has(mapped.recipeKey)) {
+      continue
+    }
+
+    seenRecipeKeys.add(mapped.recipeKey)
+    sessions.push({
+      ...mapped,
+      recipeZhName: row.recipes?.zh_name ?? null,
+    })
+
+    if (sessions.length >= limit) {
+      break
+    }
   }
+
+  return sessions
 }
 
 export async function updateCookingSession(

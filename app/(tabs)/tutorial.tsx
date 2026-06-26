@@ -11,7 +11,7 @@ import {
   UI_TOP_BUTTON_SIZE,
 } from '@/components/ui/design-tokens'
 import {
-  getLatestOpenCookingSession,
+  getRecentOpenCookingSessions,
   type LatestCookingSession,
 } from '@/services/cookingSessionService'
 import { getTutorialOverview } from '@/services/tutorialService'
@@ -32,9 +32,19 @@ const DEFAULT_TUTORIAL_ENTRY: TutorialEntry = {
   isRecent: false,
 }
 
+function entryFromSession(session: LatestCookingSession, stepCount: number): TutorialEntry {
+  return {
+    recipeKey: session.recipeKey,
+    zhName: session.recipeZhName ?? session.recipeKey,
+    stepCount,
+    currentStepNumber: Math.min(Math.max(session.currentStepNumber, 1), stepCount),
+    isRecent: true,
+  }
+}
+
 export default function TutorialTab() {
   const router = useRouter()
-  const [entry, setEntry] = useState<TutorialEntry>(DEFAULT_TUTORIAL_ENTRY)
+  const [entries, setEntries] = useState<TutorialEntry[]>([DEFAULT_TUTORIAL_ENTRY])
   const [isLoading, setIsLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -42,44 +52,42 @@ export default function TutorialTab() {
     useCallback(() => {
       let active = true
 
-      async function loadLatestTutorialEntry() {
+      async function loadTutorialEntries() {
         setIsLoading(true)
         setNotice(null)
 
         try {
-          const latestSession: LatestCookingSession | null = await getLatestOpenCookingSession()
+          const recentSessions = await getRecentOpenCookingSessions(8)
 
           if (!active) return
 
-          if (!latestSession || !latestSession.recipeKey) {
-            setEntry(DEFAULT_TUTORIAL_ENTRY)
+          if (recentSessions.length === 0) {
+            setEntries([DEFAULT_TUTORIAL_ENTRY])
             return
           }
 
-          const overview = await getTutorialOverview(latestSession.recipeKey)
+          const resolvedEntries = await Promise.all(
+            recentSessions.map(async (session) => {
+              const overview = await getTutorialOverview(session.recipeKey)
+              return overview ? entryFromSession(session, overview.stepCount) : null
+            })
+          )
 
           if (!active) return
 
-          if (!overview) {
-            setEntry(DEFAULT_TUTORIAL_ENTRY)
-            setNotice('上次教程暂时没有可用步骤，先保留番茄炒蛋入口。')
+          const validEntries = resolvedEntries.filter((entry): entry is TutorialEntry => entry !== null)
+
+          if (validEntries.length === 0) {
+            setEntries([DEFAULT_TUTORIAL_ENTRY])
+            setNotice('最近打开过的教程暂时没有可用步骤，先保留番茄炒蛋入口。')
             return
           }
 
-          setEntry({
-            recipeKey: latestSession.recipeKey,
-            zhName: latestSession.recipeZhName ?? latestSession.recipeKey,
-            stepCount: overview.stepCount,
-            currentStepNumber: Math.min(
-              Math.max(latestSession.currentStepNumber, 1),
-              overview.stepCount
-            ),
-            isRecent: true,
-          })
+          setEntries(validEntries)
         } catch (error) {
           if (!active) return
 
-          setEntry(DEFAULT_TUTORIAL_ENTRY)
+          setEntries([DEFAULT_TUTORIAL_ENTRY])
           setNotice(error instanceof Error ? error.message : String(error))
         } finally {
           if (active) {
@@ -88,7 +96,7 @@ export default function TutorialTab() {
         }
       }
 
-      void loadLatestTutorialEntry()
+      void loadTutorialEntries()
 
       return () => {
         active = false
@@ -96,14 +104,16 @@ export default function TutorialTab() {
     }, [])
   )
 
+  const hasRecentEntries = entries.some((entry) => entry.isRecent)
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.kicker}>跟做教程</Text>
-        <Text style={styles.title}>{entry.isRecent ? '继续刚刚那道菜' : '选一道菜，按步骤做下去'}</Text>
+        <Text style={styles.title}>{hasRecentEntries ? '继续最近做过的菜' : '选一道菜，按步骤做下去'}</Text>
         <Text style={styles.subtitle}>
-          {entry.isRecent
-            ? '我会从你上次离开的步骤继续，不用重新找。'
+          {hasRecentEntries
+            ? '最多保留最近 8 道教程，同一道菜只显示最新进度。'
             : '从推荐或详情页进入跟做后，这里会记住你最近做到哪一步。'}
         </Text>
       </View>
@@ -115,38 +125,43 @@ export default function TutorialTab() {
         </View>
       ) : null}
 
-      <Pressable
-        accessibilityLabel={entry.isRecent ? `继续${entry.zhName}教程` : `进入${entry.zhName}教程`}
-        disabled={isLoading}
-        onPress={() =>
-          router.push({
-            pathname: '/recipe/[recipeKey]/cook',
-            params: { recipeKey: entry.recipeKey },
-          } as Href)
-        }
-        style={({ pressed }) => [
-          styles.tutorialCard,
-          isLoading && styles.tutorialCardDisabled,
-          pressed && styles.tutorialCardPressed,
-        ]}
-      >
-        <View style={styles.iconBubble}>
-          {isLoading ? (
-            <ActivityIndicator color="#fffaf5" />
-          ) : (
-            <Ionicons name="restaurant-outline" size={27} color="#fffaf5" />
-          )}
-        </View>
-        <View style={styles.cardText}>
-          <Text style={styles.cardTitle}>{entry.zhName}</Text>
-          <Text style={styles.cardSubtitle}>
-            {entry.isRecent
-              ? `上次到第 ${entry.currentStepNumber} / ${entry.stepCount} 步，点开继续。`
-              : `${entry.stepCount} 步精细教程，支持步骤恢复和 AI 辅助。`}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={24} color="#8d6953" />
-      </Pressable>
+      <View style={styles.cardList}>
+        {entries.map((entry) => (
+          <Pressable
+            key={entry.recipeKey}
+            accessibilityLabel={entry.isRecent ? `继续${entry.zhName}教程` : `进入${entry.zhName}教程`}
+            disabled={isLoading}
+            onPress={() =>
+              router.push({
+                pathname: '/recipe/[recipeKey]/cook',
+                params: { recipeKey: entry.recipeKey },
+              } as Href)
+            }
+            style={({ pressed }) => [
+              styles.tutorialCard,
+              isLoading && styles.tutorialCardDisabled,
+              pressed && styles.tutorialCardPressed,
+            ]}
+          >
+            <View style={styles.iconBubble}>
+              {isLoading ? (
+                <ActivityIndicator color="#fffaf5" />
+              ) : (
+                <Ionicons name="restaurant-outline" size={27} color="#fffaf5" />
+              )}
+            </View>
+            <View style={styles.cardText}>
+              <Text style={styles.cardTitle}>{entry.zhName}</Text>
+              <Text style={styles.cardSubtitle}>
+                {entry.isRecent
+                  ? `上次到第 ${entry.currentStepNumber} / ${entry.stepCount} 步，点开继续。`
+                  : `${entry.stepCount} 步精细教程，支持步骤恢复和 AI 辅助。`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#8d6953" />
+          </Pressable>
+        ))}
+      </View>
     </ScrollView>
   )
 }
@@ -201,6 +216,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
+  },
+  cardList: {
+    gap: 14,
   },
   tutorialCard: {
     alignItems: 'center',
