@@ -57,6 +57,60 @@ const recommendedActionKeys = [
   'rest_food',
 ]
 
+const recipeStepEquipmentKeys = new Set([
+  'pot',
+  'pan',
+  'wok',
+  'saucepan',
+  'baking_tray',
+  'rice_cooker',
+  'air_fryer',
+  'oven',
+  'microwave',
+  'blender',
+  'toaster',
+  'knife',
+  'cutting_board',
+  'spatula',
+  'ladle',
+  'tongs',
+  'mixing_bowl',
+  'peeler',
+  'measuring_cup',
+])
+
+const tutorialStepEquipmentKeys = new Set([
+  'knife',
+  'cutting_board',
+  'bowl',
+  'plate',
+  'spoon',
+  'chopsticks_or_fork',
+  'spatula',
+  'basic_storage_container',
+  'stove_or_hotplate',
+  'frying_pan_or_wok',
+  'pot',
+  'rice_cooker',
+  'microwave',
+  'oven',
+  'air_fryer',
+  'electric_kettle',
+  'steamer',
+  'blender',
+  'pressure_cooker',
+  'toaster',
+  'pan',
+  'wok',
+  'saucepan',
+  'baking_tray',
+  'ladle',
+  'tongs',
+  'mixing_bowl',
+  'peeler',
+  'measuring_cup',
+])
+
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '')
 }
@@ -272,6 +326,10 @@ function validateRecipeCollection({
           const bodyUsage = tutorialBodyUsage.get(step.body) ?? []
           bodyUsage.push(`${recipe.recipeKey}#${step.stepNumber}`)
           tutorialBodyUsage.set(step.body, bodyUsage)
+        }
+        const allowedEquipmentKeys = kind === 'recipeSteps' ? recipeStepEquipmentKeys : tutorialStepEquipmentKeys
+        for (const equipmentKey of step.equipmentKeys ?? []) {
+          assert(allowedEquipmentKeys.has(equipmentKey), `${context} equipmentKey not allowed by schema: ${equipmentKey}`, errors)
         }
         checkText(step.title, `${context} title`, errors)
         checkText(step.body, `${context} body`, errors)
