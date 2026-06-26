@@ -20,6 +20,11 @@ const bannedTerms = [
   '建议丢弃',
 ]
 
+const recommendedBodyMin = 25
+const recommendedBodyMax = 60
+const softBodyMax = 70
+const hardBodyMax = 90
+
 const recommendedActionKeys = [
   'prep_ingredients',
   'wash_ingredients',
@@ -246,9 +251,10 @@ function validateSamples() {
         const bodyLength = charLength(step.body)
         assert(titleLength >= 4 && titleLength <= 10, `${context} title length ${titleLength} outside 4-10`, errors)
         assert(bodyLength > 0, `${context} body is empty`, errors)
-        assert(bodyLength <= 90, `${context} body length ${bodyLength} exceeds 90`, errors)
-        if (bodyLength < 35 || bodyLength > 70) {
-          warnings.push(`${context} body length ${bodyLength} outside recommended 35-70`)
+        assert(bodyLength <= hardBodyMax, `${context} body length ${bodyLength} exceeds ${hardBodyMax}`, errors)
+        if (bodyLength < recommendedBodyMin || bodyLength > recommendedBodyMax) {
+          const softNote = bodyLength > softBodyMax ? `; try to stay within ${softBodyMax}` : ''
+          warnings.push(`${context} body length ${bodyLength} outside recommended ${recommendedBodyMin}-${recommendedBodyMax}${softNote}`)
         }
         checkText(step.title, `${context} title`, errors)
         checkText(step.body, `${context} body`, errors)
