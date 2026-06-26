@@ -268,6 +268,7 @@ function checkText(text, context, errors) {
   for (const term of bannedTerms) {
     assert(!String(text).includes(term), `${context} contains banned term: ${term}`, errors)
   }
+  assert(!/[A-Za-z_]{2,}/.test(String(text)), `${context} contains raw English/key-like text`, errors)
 }
 
 function validateStepSequence(steps, context, errors) {

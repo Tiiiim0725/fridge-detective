@@ -196,65 +196,57 @@
       "recipeSteps": [
         {
           "stepNumber": 1,
-          "title": "处理食材",
-          "body": "鸡蛋打散到蛋清蛋黄融合，确认主要食材状态再开火。",
-          "estimatedMinutes": 5,
+          "title": "调好蛋液",
+          "body": "鸡蛋打散后加温水搅匀，撇掉表面大泡，蛋液细腻顺滑。",
+          "estimatedMinutes": 4,
           "timerSeconds": null,
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "pan",
-            "tongs"
+            "mixing_bowl"
           ],
           "tips": null
         },
         {
           "stepNumber": 2,
-          "title": "先做底味",
-          "body": "按家常蒸蛋的做法先处理香味、汤底或主料，让基础味道出来。",
-          "estimatedMinutes": 5,
+          "title": "入碗蒸制",
+          "body": "蛋液倒入耐热碗，水开后上锅中小火蒸，锅盖留一点缝。",
+          "estimatedMinutes": 10,
           "timerSeconds": null,
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "pan",
-            "tongs"
+            "pot"
           ],
           "tips": null
         },
         {
           "stepNumber": 3,
-          "title": "完成主流程",
-          "body": "继续加热到蛋液边缘刚凝固、中间仍柔软，再合入剩余食材。",
-          "estimatedMinutes": 8,
-          "timerSeconds": null,
-          "ingredientKeys": [
-            "egg"
-          ],
-          "equipmentKeys": [
-            "pot",
-            "pan",
-            "tongs"
-          ],
-          "tips": null
-        },
-        {
-          "stepNumber": 4,
-          "title": "调味收尾",
-          "body": "根据家常蒸蛋补足咸淡，看到家常蒸蛋的主味均匀裹在食材上即可。",
+          "title": "观察凝固",
+          "body": "轻晃时中心微微颤动、表面平整，就可以关火短暂焖一会儿。",
           "estimatedMinutes": 3,
           "timerSeconds": null,
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "pan",
-            "tongs"
+            "pot"
+          ],
+          "tips": null
+        },
+        {
+          "stepNumber": 4,
+          "title": "调味端出",
+          "body": "淋少量酱油或香油，内部细嫩成型、没有明显水层即可端出。",
+          "estimatedMinutes": 1,
+          "timerSeconds": null,
+          "ingredientKeys": [
+            "egg"
+          ],
+          "equipmentKeys": [
+            "mixing_bowl"
           ],
           "tips": null
         }
@@ -262,15 +254,14 @@
       "tutorialSteps": [
         {
           "stepNumber": 1,
-          "title": "切配汤料",
-          "body": "鸡蛋打散到蛋清蛋黄融合，块头不要太大，汤里入口会更顺。",
-          "actionKey": "slice_vegetables",
+          "title": "调匀蛋液",
+          "body": "鸡蛋打散后加温水搅匀，表面大泡撇掉，蛋液看起来细腻顺滑。",
+          "actionKey": "beat_eggs",
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "knife",
-            "cutting_board"
+            "mixing_bowl"
           ],
           "estimatedMinutes": 6,
           "timerSeconds": null,
@@ -278,15 +269,14 @@
         },
         {
           "stepNumber": 2,
-          "title": "先出香味",
-          "body": "锅中少量油处理鸡蛋，香味出来但不要炒焦，确认状态后继续。",
-          "actionKey": "saute_aromatics",
+          "title": "过滤入碗",
+          "body": "把蛋液倒入耐热碗，表面没有明显泡沫，碗边保持干净。",
+          "actionKey": "prep_ingredients",
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "spatula"
+            "mixing_bowl"
           ],
           "estimatedMinutes": 3,
           "timerSeconds": null,
@@ -294,9 +284,9 @@
         },
         {
           "stepNumber": 3,
-          "title": "加入汤底",
-          "body": "加入清水或汤底，锅中液面没过主要食材，煮开后汤色开始变均匀，让家常蒸蛋受热更均匀。",
-          "actionKey": "boil_water",
+          "title": "上锅蒸制",
+          "body": "水开后放入蒸碗，保持中小火，锅盖留一点缝防止表面起蜂窝。",
+          "actionKey": "steam",
           "ingredientKeys": [
             "egg"
           ],
@@ -309,15 +299,14 @@
         },
         {
           "stepNumber": 4,
-          "title": "先煮耐煮",
-          "body": "先让水汽稳定后再上锅，蛋液表面轻轻晃动但没有大泡即可。",
-          "actionKey": "simmer",
+          "title": "观察凝固",
+          "body": "轻晃蒸碗时中心微微颤动、表面平整，就可以准备关火。",
+          "actionKey": "check_doneness",
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "ladle"
+            "pot"
           ],
           "estimatedMinutes": 10,
           "timerSeconds": null,
@@ -325,15 +314,14 @@
         },
         {
           "stepNumber": 5,
-          "title": "再下易熟",
-          "body": "加入鸡蛋，轻轻推开，避免把嫩食材搅碎，确认状态后继续。",
-          "actionKey": "combine_ingredients",
+          "title": "焖后开盖",
+          "body": "关火后短暂焖一会儿再开盖，蒸蛋表面更稳定，不容易塌陷。",
+          "actionKey": "rest_food",
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "ladle"
+            "pot"
           ],
           "estimatedMinutes": 4,
           "timerSeconds": null,
@@ -341,15 +329,14 @@
         },
         {
           "stepNumber": 6,
-          "title": "观察汤色",
-          "body": "小火煮到家常蒸蛋汤色更融合，主料状态达到蛋液边缘刚凝固、中间仍柔软。",
-          "actionKey": "check_doneness",
+          "title": "调味收口",
+          "body": "淋少量酱油或香油，表面有光泽但不被调料完全盖住，味道更柔和。",
+          "actionKey": "season",
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "ladle"
+            "pot"
           ],
           "estimatedMinutes": 5,
           "timerSeconds": null,
@@ -357,15 +344,14 @@
         },
         {
           "stepNumber": 7,
-          "title": "调味收口",
-          "body": "加盐或酱料后尝汤，味道清楚但不过重，汤面没有大量浮沫，让家常蒸蛋味道更均匀。",
-          "actionKey": "season",
+          "title": "检查质地",
+          "body": "用勺子轻轻划开，内部细嫩成型、没有明显水层即可端出。",
+          "actionKey": "check_doneness",
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "ladle"
+            "pot"
           ],
           "estimatedMinutes": 2,
           "timerSeconds": null,
@@ -373,15 +359,14 @@
         },
         {
           "stepNumber": 8,
-          "title": "盛出汤品",
-          "body": "把家常蒸蛋连汤带料盛出，碗里汤料比例均匀即可，外观整齐后上桌。",
+          "title": "端出蒸蛋",
+          "body": "把蒸蛋连碗端出，边缘擦干净，表面仍平整时趁温热上桌。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "egg"
           ],
           "equipmentKeys": [
-            "pot",
-            "ladle"
+            "pot"
           ],
           "estimatedMinutes": 1,
           "timerSeconds": null,
@@ -1862,7 +1847,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余tofu、gochujang翻匀，辣酱豆腐饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余豆腐、韩式辣酱翻匀，辣酱豆腐饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "tofu",
@@ -3712,7 +3697,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余canned black beans、tomato翻匀，黑豆番茄饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余黑豆罐头、番茄翻匀，黑豆番茄饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "canned_black_beans",
@@ -3930,7 +3915,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余canned kidney beans、玉米罐头翻匀，红腰豆玉米饭碗的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余红腰豆罐头、玉米罐头翻匀，红腰豆玉米饭碗的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "canned_kidney_beans",
@@ -5461,7 +5446,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余salmon、cucumber翻匀，三文鱼饭碗的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余三文鱼、黄瓜翻匀，三文鱼饭碗的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "salmon",
@@ -7090,7 +7075,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余chicken breast、canned pineapple翻匀，菠萝鸡肉饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余鸡胸肉、菠萝罐头翻匀，菠萝鸡肉饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "chicken_breast",
@@ -7307,7 +7292,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余sausage、cabbage翻匀，卷心菜香肠饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余香肠、卷心菜翻匀，卷心菜香肠饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "sausage",
@@ -7846,7 +7831,7 @@
         {
           "stepNumber": 12,
           "title": "装盘检查",
-          "body": "确认鸡翅土豆锅肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，鸡翅土豆锅口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "chicken_wings",
@@ -8255,7 +8240,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余pork chop、onion翻匀，洋葱猪排饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余猪排、洋葱翻匀，洋葱猪排饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "pork_chop",
@@ -8721,7 +8706,7 @@
         {
           "stepNumber": 8,
           "title": "装盘检查",
-          "body": "确认扇贝玉米滑蛋扇贝表面变白、中心仍显得饱满，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认扇贝表面变白、中心仍显得饱满，扇贝玉米滑蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "scallops",
@@ -9092,7 +9077,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余cod、broccoli翻匀，鳕鱼西兰花饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余鳕鱼、西兰花翻匀，鳕鱼西兰花饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "cod",
@@ -9551,7 +9536,7 @@
         {
           "stepNumber": 6,
           "title": "装盘检查",
-          "body": "确认冷冻杂蔬炒豆腐豆腐边缘微黄，轻推时还能保持块状，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认豆腐边缘微黄，轻推时还能保持块状，冷冻杂蔬炒豆腐口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "frozen_mixed_vegetables",
@@ -9929,7 +9914,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余canned mushroom、tofu翻匀，罐头蘑菇豆腐饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余蘑菇罐头、豆腐翻匀，罐头蘑菇豆腐饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "canned_mushroom",
@@ -10208,7 +10193,7 @@
         {
           "stepNumber": 8,
           "title": "整理出餐",
-          "body": "确认柠檬蒜香白鱼鱼肉由透明转白，能轻轻推动但不碎，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认鱼肉由透明转白，能轻轻推动但不碎，柠檬蒜香白鱼口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "white_fish",
