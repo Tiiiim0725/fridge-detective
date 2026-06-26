@@ -403,26 +403,6 @@ export default function HomeScreen() {
             />
           </View>
 
-          <View style={styles.cornerBottomLeft}>
-            <CornerMetric
-              iconName="checkmark-circle-outline"
-              label="已有核心"
-              value={formatIngredientNames(
-                currentItem.matchedCoreIngredients.slice(0, 2),
-                ingredientNameByKey,
-                '待补齐'
-              )}
-            />
-          </View>
-
-          <View style={styles.cornerBottomRight}>
-            <CornerMetric
-              iconName="sparkles-outline"
-              label="匹配"
-              value={`${Math.round(currentItem.score)} 分`}
-            />
-          </View>
-
           <View style={styles.orbitStage}>
             <View style={styles.placemat} />
             {orbitDishes.map((dish) => {
@@ -460,36 +440,26 @@ export default function HomeScreen() {
               )
             })}
 
-            <View style={styles.orbitHint}>
-              <Ionicons name="chevron-back" size={15} color="#766a60" />
-              <Text style={styles.orbitHintText}>按住拖动换一道</Text>
-              <Ionicons name="chevron-forward" size={15} color="#766a60" />
-            </View>
-          </View>
-
-          <View style={styles.recipeCopyPanel}>
-            <Text style={styles.recipeReason} numberOfLines={2}>{currentReason}</Text>
-            <View style={styles.detailPillRow}>
-              <View style={styles.detailPill}>
-                <Ionicons name="flame-outline" size={14} color="#7e4423" />
-                <Text style={styles.detailPillText}>
-                  {difficultyLabels[currentItem.recipe.difficultyKey] ?? currentItem.recipe.difficultyKey}
-                </Text>
-              </View>
-              <View style={styles.detailPill}>
-                <Ionicons name="restaurant-outline" size={14} color="#7e4423" />
-                <Text style={styles.detailPillText}>
-                  {cuisineLabels[currentItem.recipe.cuisineKey] ?? currentItem.recipe.cuisineKey}
-                </Text>
-              </View>
-              {currentItem.missingCoreIngredients.length > 0 ? (
-                <View style={styles.detailPillWarning}>
-                  <Ionicons name="alert-circle-outline" size={14} color="#9c552c" />
-                  <Text style={styles.detailPillWarningText}>
-                    缺 {formatIngredientNames(currentItem.missingCoreIngredients.slice(0, 1), ingredientNameByKey, '少量食材')}
+            <View style={styles.orbitInfoTray}>
+              <Text style={styles.orbitInfoReason} numberOfLines={2}>{currentReason}</Text>
+              <View style={styles.orbitInfoMetaRow}>
+                <View style={styles.orbitInfoPill}>
+                  <Ionicons name="checkmark-circle-outline" size={15} color="#8c4b25" />
+                  <Text style={styles.orbitInfoLabel}>已有</Text>
+                  <Text style={styles.orbitInfoValue} numberOfLines={1}>
+                    {formatIngredientNames(
+                      currentItem.matchedCoreIngredients.slice(0, 2),
+                      ingredientNameByKey,
+                      '待补齐'
+                    )}
                   </Text>
                 </View>
-              ) : null}
+                <View style={styles.orbitInfoPill}>
+                  <Ionicons name="sparkles-outline" size={15} color="#8c4b25" />
+                  <Text style={styles.orbitInfoLabel}>匹配</Text>
+                  <Text style={styles.orbitInfoValue}>{Math.round(currentItem.score)} 分</Text>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -737,10 +707,6 @@ const styles = StyleSheet.create({
     left: '50%',
     marginLeft: -153,
     position: 'absolute',
-    shadowColor: '#5d3d26',
-    shadowOffset: { width: 0, height: 22 },
-    shadowOpacity: 0.22,
-    shadowRadius: 26,
     top: 66,
     width: 306,
   },
@@ -752,35 +718,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#2f493e',
     justifyContent: 'center',
   },
-  orbitHint: {
+  orbitInfoTray: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 248, 240, 0.86)',
-    borderColor: '#eadbc9',
-    borderRadius: 18,
-    borderWidth: 1,
-    bottom: 18,
-    flexDirection: 'row',
-    gap: 3,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    bottom: 52,
+    gap: 8,
+    paddingHorizontal: 26,
     position: 'absolute',
+    width: '100%',
   },
-  orbitHintText: {
-    color: '#766a60',
-    fontSize: 12,
-    fontWeight: '800',
+  orbitInfoLabel: {
+    color: '#9a8778',
+    fontSize: 11,
+    fontWeight: '900',
   },
-  recipeCopyPanel: {
+  orbitInfoMetaRow: {
     alignItems: 'center',
-    marginTop: -2,
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    width: '100%',
   },
-  recipeReason: {
+  orbitInfoPill: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 248, 240, 0.92)',
+    borderColor: '#eadbc9',
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    maxWidth: 166,
+    minHeight: 42,
+    minWidth: 116,
+    paddingHorizontal: 13,
+  },
+  orbitInfoReason: {
     color: '#4e443b',
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 22,
-    maxWidth: 420,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+    maxWidth: 342,
     textAlign: 'center',
+  },
+  orbitInfoValue: {
+    color: '#2f2923',
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '900',
   },
   detailPillRow: {
     flexDirection: 'row',
