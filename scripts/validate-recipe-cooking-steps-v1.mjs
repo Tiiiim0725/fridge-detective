@@ -10,6 +10,7 @@ const imageManifestPath = path.join(repoRoot, 'docs/content/recipe_image_manifes
 const recipeContentPath = path.join(repoRoot, 'docs/content/recipe_content_v0.2.md')
 const samplePath = path.join(repoRoot, 'docs/content/recipe_cooking_steps_samples_v1.json')
 const outputManifestPath = path.join(repoRoot, 'docs/content/recipe_cooking_steps_manifest_v1.csv')
+const docsContentDir = path.join(repoRoot, 'docs/content')
 
 const bannedTerms = [
   '绝对安全',
@@ -221,14 +222,9 @@ function validateStepSequence(steps, context, errors) {
   })
 }
 
-function validateSamples() {
-  const samples = JSON.parse(readText(samplePath))
-  const imageRecipeKeys = new Set(readImageManifest().map((row) => row.recipe_key))
+function validateActionKeyPool(samples, errors) {
   const actionKeys = samples.actionKeyPool.map((item) => item.actionKey)
   const actionKeySet = new Set(actionKeys)
-  const errors = []
-  const warnings = []
-
   assert(actionKeys.length >= 25 && actionKeys.length <= 40, `actionKeyPool has ${actionKeys.length} keys; expected 25-40`, errors)
   assert(actionKeySet.size === actionKeys.length, 'actionKeyPool has duplicate action keys', errors)
 
@@ -236,9 +232,24 @@ function validateSamples() {
     assert(actionKeySet.has(key), `actionKeyPool missing recommended key: ${key}`, errors)
   }
 
-  for (const recipe of samples.recipes ?? []) {
-    const recipeContext = `recipe ${recipe.recipeKey}`
+  return { actionKeys, actionKeySet }
+}
+
+function validateRecipeCollection({
+  recipes,
+  collectionLabel,
+  actionKeySet,
+  imageRecipeKeys,
+  errors,
+  warnings,
+}) {
+  const seenRecipeKeys = new Set()
+
+  for (const recipe of recipes ?? []) {
+    const recipeContext = `${collectionLabel} recipe ${recipe.recipeKey}`
     assert(imageRecipeKeys.has(recipe.recipeKey), `${recipeContext} is not in the 200-recipe image manifest`, errors)
+    assert(!seenRecipeKeys.has(recipe.recipeKey), `${recipeContext} appears more than once in this collection`, errors)
+    seenRecipeKeys.add(recipe.recipeKey)
     assert(typeof recipe.needsReview === 'boolean', `${recipeContext} needsReview must be boolean`, errors)
     assert((recipe.tutorialSteps ?? []).length <= 18, `${recipeContext} has more than 18 tutorial steps`, errors)
     validateStepSequence(recipe.recipeSteps ?? [], `${recipeContext} recipeSteps`, errors)
@@ -252,7 +263,7 @@ function validateSamples() {
         assert(titleLength >= 4 && titleLength <= 10, `${context} title length ${titleLength} outside 4-10`, errors)
         assert(bodyLength > 0, `${context} body is empty`, errors)
         assert(bodyLength <= hardBodyMax, `${context} body length ${bodyLength} exceeds ${hardBodyMax}`, errors)
-        if (bodyLength < recommendedBodyMin || bodyLength > recommendedBodyMax) {
+        if (kind === 'tutorialSteps' && (bodyLength < recommendedBodyMin || bodyLength > recommendedBodyMax)) {
           const softNote = bodyLength > softBodyMax ? `; try to stay within ${softBodyMax}` : ''
           warnings.push(`${context} body length ${bodyLength} outside recommended ${recommendedBodyMin}-${recommendedBodyMax}${softNote}`)
         }
@@ -265,6 +276,57 @@ function validateSamples() {
         }
       }
     }
+  }
+}
+
+function readBatchFiles() {
+  return fs
+    .readdirSync(docsContentDir)
+    .filter((fileName) => /^recipe_cooking_steps_batch_[a-z]_v\d+\.json$/.test(fileName))
+    .sort()
+    .map((fileName) => path.join(docsContentDir, fileName))
+}
+
+function validateBatchShape(batch, filePath, errors) {
+  const label = path.relative(repoRoot, filePath)
+  assert(batch.schemaVersion === 'recipe-cooking-steps-batch-v1', `${label} has unexpected schemaVersion`, errors)
+  assert(Array.isArray(batch.recipes), `${label} recipes must be an array`, errors)
+  assert(Array.isArray(batch.sortOrderRange) && batch.sortOrderRange.length === 2, `${label} sortOrderRange must have two values`, errors)
+
+  if (batch.batch === 'A') {
+    assert(batch.sortOrderRange?.[0] === 1 && batch.sortOrderRange?.[1] === 50, `${label} batch A should cover sort order 1-50`, errors)
+    assert((batch.recipes ?? []).length === 50, `${label} batch A should contain 50 recipes`, errors)
+  }
+}
+
+function validateSamplesAndBatches() {
+  const samples = JSON.parse(readText(samplePath))
+  const imageRecipeKeys = new Set(readImageManifest().map((row) => row.recipe_key))
+  const errors = []
+  const warnings = []
+  const { actionKeys, actionKeySet } = validateActionKeyPool(samples, errors)
+
+  validateRecipeCollection({
+    recipes: samples.recipes ?? [],
+    collectionLabel: 'samples',
+    actionKeySet,
+    imageRecipeKeys,
+    errors,
+    warnings,
+  })
+
+  const batchPaths = readBatchFiles()
+  for (const batchPath of batchPaths) {
+    const batch = JSON.parse(readText(batchPath))
+    validateBatchShape(batch, batchPath, errors)
+    validateRecipeCollection({
+      recipes: batch.recipes ?? [],
+      collectionLabel: path.relative(repoRoot, batchPath),
+      actionKeySet,
+      imageRecipeKeys,
+      errors,
+      warnings,
+    })
   }
 
   if (warnings.length > 0) {
@@ -279,11 +341,17 @@ function validateSamples() {
     return
   }
 
-  console.log(`Validated ${samples.recipes.length} sample recipes and ${actionKeys.length} action keys.`)
+  const batchCount = batchPaths.length
+  const batchRecipeCount = batchPaths.reduce((count, batchPath) => {
+    const batch = JSON.parse(readText(batchPath))
+    return count + (batch.recipes?.length ?? 0)
+  }, 0)
+
+  console.log(`Validated ${samples.recipes.length} sample recipes, ${batchRecipeCount} batch recipes across ${batchCount} batch files, and ${actionKeys.length} action keys.`)
 }
 
 if (process.argv.includes('--write-manifest')) {
   writeWorkingManifest()
 }
 
-validateSamples()
+validateSamplesAndBatches()
