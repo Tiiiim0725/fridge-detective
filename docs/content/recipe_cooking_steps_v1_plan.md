@@ -34,7 +34,7 @@ Each final recipe should eventually have both:
 - Complex recipes: up to 15-18 steps.
 - Do not split meaningless micro-steps just to increase count.
 - Each title should be 4-10 Chinese characters.
-- Each body should usually be 35-70 Chinese characters and should not exceed 90 Chinese characters.
+- Each body should usually be 25-60 Chinese characters, should try to stay within 70 Chinese characters, and must not exceed 90 Chinese characters.
 - Each step should describe one primary action.
 - Each step must include an executable state judgment, not only a time.
 - Do not use absolute food-safety wording such as "绝对安全", "一定熟了", or "一定可食用".
