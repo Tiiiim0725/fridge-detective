@@ -166,7 +166,7 @@
         {
           "stepNumber": 5,
           "title": "装盘检查",
-          "body": "确认洋葱炒蛋蛋液边缘刚凝固、中间仍柔软，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认蛋液边缘刚凝固、中间仍柔软，洋葱炒蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "onion",
@@ -347,7 +347,7 @@
         {
           "stepNumber": 6,
           "title": "盛出收尾",
-          "body": "确认胡萝卜炒蛋蛋液边缘刚凝固、中间仍柔软，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认蛋液边缘刚凝固、中间仍柔软，胡萝卜炒蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "carrot",
@@ -554,7 +554,7 @@
         {
           "stepNumber": 8,
           "title": "出锅确认",
-          "body": "确认西兰花炒蛋蛋液边缘刚凝固、中间仍柔软，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认蛋液边缘刚凝固、中间仍柔软，西兰花炒蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "broccoli",
@@ -769,7 +769,7 @@
         {
           "stepNumber": 8,
           "title": "整理出餐",
-          "body": "确认番茄卷心菜炒蛋蔬菜颜色变亮，边缘开始变软但仍有支撑感，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认蔬菜颜色变亮，边缘开始变软但仍有支撑感，番茄卷心菜炒蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "tomato",
@@ -938,7 +938,7 @@
         {
           "stepNumber": 5,
           "title": "装盘检查",
-          "body": "确认蒜香花椰菜蔬菜颜色变亮，边缘开始变软但仍有支撑感，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认蔬菜颜色变亮，边缘开始变软但仍有支撑感，蒜香花椰菜口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "cauliflower",
@@ -1119,7 +1119,7 @@
         {
           "stepNumber": 6,
           "title": "盛出收尾",
-          "body": "确认蘑菇炒蛋蛋液边缘刚凝固、中间仍柔软，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认蛋液边缘刚凝固、中间仍柔软，蘑菇炒蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "mushroom",
@@ -1320,7 +1320,7 @@
         {
           "stepNumber": 8,
           "title": "出锅确认",
-          "body": "确认葱香煎豆腐豆腐边缘微黄，轻推时还能保持块状，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认豆腐边缘微黄，轻推时还能保持块状，葱香煎豆腐口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "tofu",
@@ -1474,7 +1474,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余tofu、scallion翻匀，酱油豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余豆腐、葱花翻匀，酱油豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "tofu",
@@ -1691,7 +1691,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余tomato、tofu翻匀，番茄豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余番茄、豆腐翻匀，番茄豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "tomato",
@@ -1909,7 +1909,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余猪肉末、tofu翻匀，肉末豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余猪肉末、豆腐翻匀，肉末豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "ground_pork",
@@ -2188,7 +2188,7 @@
         {
           "stepNumber": 8,
           "title": "出锅确认",
-          "body": "确认牛肉碎炒土豆丁肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，牛肉碎炒土豆丁口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "ground_beef",
@@ -2390,7 +2390,7 @@
         {
           "stepNumber": 8,
           "title": "整理出餐",
-          "body": "确认洋葱鸡腿肉肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，洋葱鸡腿肉口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "chicken_thigh",
@@ -2597,7 +2597,7 @@
         {
           "stepNumber": 8,
           "title": "装盘检查",
-          "body": "确认番茄鸡胸肉肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，番茄鸡胸肉口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "chicken_breast",
@@ -2804,7 +2804,7 @@
         {
           "stepNumber": 8,
           "title": "盛出收尾",
-          "body": "确认黄瓜鸡胸肉肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，黄瓜鸡胸肉口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "chicken_breast",
@@ -3020,7 +3020,7 @@
         {
           "stepNumber": 8,
           "title": "出锅确认",
-          "body": "确认彩椒猪肉片肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，彩椒猪肉片口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "pork_slice",
@@ -3228,7 +3228,7 @@
         {
           "stepNumber": 8,
           "title": "整理出餐",
-          "body": "确认彩椒牛肉片肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，彩椒牛肉片口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "beef_slice",
@@ -3435,7 +3435,7 @@
         {
           "stepNumber": 8,
           "title": "装盘检查",
-          "body": "确认黄瓜虾仁虾仁由半透明转粉并自然卷起，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认虾仁由半透明转粉并自然卷起，黄瓜虾仁口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "shrimp",
@@ -3651,7 +3651,7 @@
         {
           "stepNumber": 8,
           "title": "盛出收尾",
-          "body": "确认虾仁炒卷心菜虾仁由半透明转粉并自然卷起，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认虾仁由半透明转粉并自然卷起，虾仁炒卷心菜口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "shrimp",
@@ -3866,7 +3866,7 @@
         {
           "stepNumber": 8,
           "title": "出锅确认",
-          "body": "确认番茄豆腐白鱼鱼肉由透明转白，能轻轻推动但不碎，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认鱼肉由透明转白，能轻轻推动但不碎，番茄豆腐白鱼口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "white_fish",
@@ -4048,7 +4048,7 @@
         {
           "stepNumber": 6,
           "title": "整理出餐",
-          "body": "确认金枪鱼炒卷心菜罐头食材热透或拌匀，不需要久炒，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认罐头食材热透或拌匀，不需要久炒，金枪鱼炒卷心菜口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "canned_tuna",
@@ -4229,7 +4229,7 @@
         {
           "stepNumber": 6,
           "title": "装盘检查",
-          "body": "确认培根炒卷心菜肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，培根炒卷心菜口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "bacon",
@@ -4445,7 +4445,7 @@
         {
           "stepNumber": 8,
           "title": "盛出收尾",
-          "body": "确认香肠土豆锅肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，香肠土豆锅口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "sausage",
@@ -4664,7 +4664,7 @@
         {
           "stepNumber": 8,
           "title": "出锅确认",
-          "body": "确认火鸡碎番茄蛋肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，火鸡碎番茄蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "ground_turkey",
@@ -7244,7 +7244,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余potato、鸡蛋翻匀，土豆鸡蛋盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余土豆、鸡蛋翻匀，土豆鸡蛋盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "potato",
@@ -7461,7 +7461,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余sweet potato、鸡蛋翻匀，红薯鸡蛋饭碗的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余红薯、鸡蛋翻匀，红薯鸡蛋饭碗的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "sweet_potato",
@@ -7678,7 +7678,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余chicken breast、tomato翻匀，番茄鸡肉盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余鸡胸肉、番茄翻匀，番茄鸡肉盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "chicken_breast",
@@ -7895,7 +7895,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余cabbage、tofu翻匀，卷心菜豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余卷心菜、豆腐翻匀，卷心菜豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "cabbage",
@@ -8112,7 +8112,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余broccoli、tofu翻匀，西兰花豆腐饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余西兰花、豆腐翻匀，西兰花豆腐饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "broccoli",
@@ -8329,7 +8329,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余spinach、鸡蛋翻匀，菠菜鸡蛋饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余菠菜、鸡蛋翻匀，菠菜鸡蛋饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "spinach",
@@ -8546,7 +8546,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余beef slice、mushroom翻匀，蘑菇牛肉盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余牛肉片、蘑菇翻匀，蘑菇牛肉盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "beef_slice",
@@ -8763,7 +8763,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余pork slice、onion翻匀，洋葱猪肉盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余猪肉片、洋葱翻匀，洋葱猪肉盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "pork_slice",
@@ -9261,7 +9261,7 @@
         {
           "stepNumber": 8,
           "title": "整理出餐",
-          "body": "确认四季豆鸡胸肉肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，四季豆鸡胸肉口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "green_beans",
@@ -9478,7 +9478,7 @@
         {
           "stepNumber": 8,
           "title": "装盘检查",
-          "body": "确认四季豆牛肉片肉类表面变色，锅底水汽明显减少，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认肉类表面变色，锅底水汽明显减少，四季豆牛肉片口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "green_beans",
@@ -9686,7 +9686,7 @@
         {
           "stepNumber": 8,
           "title": "盛出收尾",
-          "body": "确认花椰菜炒蛋蛋液边缘刚凝固、中间仍柔软，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认蛋液边缘刚凝固、中间仍柔软，花椰菜炒蛋口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "cauliflower",

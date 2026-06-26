@@ -854,7 +854,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余tofu、bok choy翻匀，小白菜豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余豆腐、小白菜翻匀，小白菜豆腐盖饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "tofu",
@@ -3690,7 +3690,7 @@
         {
           "stepNumber": 8,
           "title": "整理出餐",
-          "body": "确认番茄鳕鱼锅鱼肉由透明转白，能轻轻推动但不碎，口味合适后盛出，避免继续闷在锅里。",
+          "body": "确认鱼肉由透明转白，能轻轻推动但不碎，番茄鳕鱼锅口味合适后盛出，避免继续闷在锅里。",
           "actionKey": "plate_dish",
           "ingredientKeys": [
             "cod",
@@ -8589,7 +8589,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余chicken breast、frozen broccoli翻匀，冷冻西兰花鸡胸饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余鸡胸肉、冷冻西兰花翻匀，冷冻西兰花鸡胸饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "chicken_breast",
@@ -9430,7 +9430,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余canned black beans、玉米罐头翻匀，黑豆玉米饭碗的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余黑豆罐头、玉米罐头翻匀，黑豆玉米饭碗的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "canned_black_beans",
@@ -9652,7 +9652,7 @@
         {
           "stepNumber": 4,
           "title": "加入配菜",
-          "body": "加入剩余tofu、冷冻豌豆、curry blocks翻匀，豆腐冷冻豌豆咖喱饭的浇头颜色均匀、锅底水汽减少。",
+          "body": "加入剩余豆腐、冷冻豌豆、咖喱块翻匀，豆腐冷冻豌豆咖喱饭的浇头颜色均匀、锅底水汽减少。",
           "actionKey": "stir_fry",
           "ingredientKeys": [
             "tofu",
