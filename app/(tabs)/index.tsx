@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -49,11 +49,14 @@ type OrbitDish = {
 
 const PHONE_CANVAS_WIDTH = UI_PAGE_MAX_WIDTH
 const PHONE_CANVAS_MIN_HEIGHT = 900
-const ORBIT_DRAG_DISTANCE = 210
-const ORBIT_SIDE_X = 238
-const ORBIT_SIDE_Y = 104
-const ORBIT_SIDE_ROTATION = 15
-const ORBIT_RELEASE_THRESHOLD = 0.34
+const ORBIT_DRAG_DISTANCE = 190
+const ORBIT_SIDE_X = 210
+const ORBIT_SIDE_Y = 96
+const ORBIT_SIDE_ROTATION = 12
+const ORBIT_RELEASE_THRESHOLD = 0.52
+const ORBIT_VELOCITY_THRESHOLD = 0.78
+const ORBIT_VELOCITY_PROJECTION = 0.34
+const ORBIT_SNAP_DURATION_MS = 280
 const RECIPE_SHEET_TOUCH_RELEASE_DISTANCE = 30
 const RECIPE_SHEET_OPEN_DURATION_MS = 560
 const RECIPE_SHEET_OPEN_START_Y = PHONE_CANVAS_MIN_HEIGHT - 230
@@ -232,8 +235,19 @@ export default function HomeScreen() {
   const [openingRecipe, setOpeningRecipe] = useState<RecipeRecommendationResult | null>(null)
   const hasLoadedOnceRef = useRef(false)
   const recipeSheetTouchStartYRef = useRef<number | null>(null)
+  const dragProgressAnimRef = useRef(new Animated.Value(0))
   const recipeOpenProgressRef = useRef(new Animated.Value(0))
   const isRecipeOpeningRef = useRef(false)
+
+  useEffect(() => {
+    const listenerId = dragProgressAnimRef.current.addListener(({ value }) => {
+      setDragProgress(value)
+    })
+
+    return () => {
+      dragProgressAnimRef.current.removeListener(listenerId)
+    }
+  }, [])
 
   const loadRecommendations = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     if (mode === 'refresh') {
@@ -298,15 +312,48 @@ export default function HomeScreen() {
     ? formatRecommendationReason(currentItem.reasons[0], ingredientNameByKey)
     : '根据你的冰箱和偏好排序'
 
-  const goPrevious = useCallback(() => {
+  const resetOrbitDrag = useCallback(() => {
+    dragProgressAnimRef.current.stopAnimation()
+    dragProgressAnimRef.current.setValue(0)
     setDragProgress(0)
+  }, [])
+
+  const setOrbitDragProgress = useCallback((value: number) => {
+    const clampedValue = clamp(value, -1, 1)
+
+    dragProgressAnimRef.current.stopAnimation()
+    dragProgressAnimRef.current.setValue(clampedValue)
+    setDragProgress(clampedValue)
+  }, [])
+
+  const settleOrbitDrag = useCallback((toValue: number, onSettled?: () => void) => {
+    dragProgressAnimRef.current.stopAnimation()
+
+    Animated.timing(dragProgressAnimRef.current, {
+      toValue,
+      duration: ORBIT_SNAP_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (!finished) {
+        return
+      }
+
+      onSettled?.()
+      dragProgressAnimRef.current.setValue(0)
+      setDragProgress(0)
+    })
+  }, [])
+
+  const goPrevious = useCallback(() => {
+    resetOrbitDrag()
     setActiveIndex((index) => loopIndex(index - 1, recommendations.length))
-  }, [recommendations.length])
+  }, [recommendations.length, resetOrbitDrag])
 
   const goNext = useCallback(() => {
-    setDragProgress(0)
+    resetOrbitDrag()
     setActiveIndex((index) => loopIndex(index + 1, recommendations.length))
-  }, [recommendations.length])
+  }, [recommendations.length, resetOrbitDrag])
 
   const openCurrentRecipe = useCallback(() => {
     if (!currentItem) {
@@ -423,7 +470,7 @@ export default function HomeScreen() {
 
   const panResponder = useMemo(() => PanResponder.create({
     onPanResponderGrant: () => {
-      setDragProgress(0)
+      setOrbitDragProgress(0)
     },
     onMoveShouldSetPanResponder: (_event, gestureState) => (
       recommendations.length > 1
@@ -435,25 +482,40 @@ export default function HomeScreen() {
         return
       }
 
-      setDragProgress(clamp(gestureState.dx / ORBIT_DRAG_DISTANCE, -1, 1))
+      setOrbitDragProgress(gestureState.dx / ORBIT_DRAG_DISTANCE)
     },
     onPanResponderRelease: (_event, gestureState) => {
       const releaseProgress = clamp(gestureState.dx / ORBIT_DRAG_DISTANCE, -1, 1)
-      const shouldGoNext = releaseProgress < -ORBIT_RELEASE_THRESHOLD || gestureState.vx < -0.55
-      const shouldGoPrevious = releaseProgress > ORBIT_RELEASE_THRESHOLD || gestureState.vx > 0.55
+      const projectedProgress = clamp(
+        releaseProgress + gestureState.vx * ORBIT_VELOCITY_PROJECTION,
+        -1.2,
+        1.2
+      )
+      const shouldGoNext = (
+        projectedProgress < -ORBIT_RELEASE_THRESHOLD
+        || gestureState.vx < -ORBIT_VELOCITY_THRESHOLD
+      )
+      const shouldGoPrevious = (
+        projectedProgress > ORBIT_RELEASE_THRESHOLD
+        || gestureState.vx > ORBIT_VELOCITY_THRESHOLD
+      )
 
       if (shouldGoNext) {
-        goNext()
+        settleOrbitDrag(-1, () => {
+          setActiveIndex((index) => loopIndex(index + 1, recommendations.length))
+        })
       } else if (shouldGoPrevious) {
-        goPrevious()
+        settleOrbitDrag(1, () => {
+          setActiveIndex((index) => loopIndex(index - 1, recommendations.length))
+        })
       } else {
-        setDragProgress(0)
+        settleOrbitDrag(0)
       }
     },
     onPanResponderTerminate: () => {
-      setDragProgress(0)
+      settleOrbitDrag(0)
     },
-  }), [goNext, goPrevious, recommendations.length])
+  }), [recommendations.length, setOrbitDragProgress, settleOrbitDrag])
 
   const openingRecipeSheetStyle = {
     borderTopLeftRadius: recipeOpenProgressRef.current.interpolate({
@@ -554,7 +616,7 @@ export default function HomeScreen() {
             <View style={styles.placemat} />
             {orbitDishes.map((dish) => {
               const isCenterSlot = dish.slot === 0
-              const imageSize = isCenterSlot ? 286 : 274
+              const imageSize = isCenterSlot ? 270 : 256
 
               return (
                 <Pressable
