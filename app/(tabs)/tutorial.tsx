@@ -2,6 +2,13 @@ import { Ionicons } from '@expo/vector-icons'
 import { type Href, useRouter } from 'expo-router'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
+import {
+  UI_CARD_RADIUS,
+  UI_PAGE_MAX_WIDTH,
+  UI_PAGE_SIDE_PADDING,
+  UI_TOP_BUTTON_SIZE,
+} from '@/components/ui/design-tokens'
+
 export default function TutorialTab() {
   const router = useRouter()
 
@@ -47,10 +54,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    alignSelf: 'center',
     gap: 22,
+    maxWidth: UI_PAGE_MAX_WIDTH,
     paddingBottom: 120,
-    paddingHorizontal: 22,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
     paddingTop: 34,
+    width: '100%',
   },
   header: {
     gap: 10,
@@ -63,10 +73,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#28231f',
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '900',
     letterSpacing: 0,
-    lineHeight: 38,
+    lineHeight: 36,
   },
   subtitle: {
     color: '#70665d',
@@ -77,7 +87,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderColor: '#eadfd3',
-    borderRadius: 28,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 16,
@@ -94,10 +104,10 @@ const styles = StyleSheet.create({
   iconBubble: {
     alignItems: 'center',
     backgroundColor: '#163f34',
-    borderRadius: 27,
-    height: 54,
+    borderRadius: UI_TOP_BUTTON_SIZE / 2,
+    height: UI_TOP_BUTTON_SIZE,
     justifyContent: 'center',
-    width: 54,
+    width: UI_TOP_BUTTON_SIZE,
   },
   cardText: {
     flex: 1,

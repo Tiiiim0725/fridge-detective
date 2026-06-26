@@ -12,6 +12,13 @@ import {
 } from 'react-native'
 
 import { FloatingTopButton } from '@/components/ui/floating-top-button'
+import {
+  UI_CARD_RADIUS,
+  UI_PAGE_MAX_WIDTH,
+  UI_PAGE_SIDE_PADDING,
+  UI_PILL_RADIUS,
+  UI_TOP_BUTTON_SIZE,
+} from '@/components/ui/design-tokens'
 import { getRecipeDetail } from '@/services/recipeService'
 import { getTutorialOverview } from '@/services/tutorialService'
 import { KITCHEN_EQUIPMENT_OPTIONS } from '@/types/profile'
@@ -336,9 +343,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f3ec',
   },
   content: {
+    alignSelf: 'center',
     gap: 16,
-    padding: 18,
+    maxWidth: UI_PAGE_MAX_WIDTH,
+    padding: UI_PAGE_SIDE_PADDING,
     paddingBottom: 34,
+    width: '100%',
   },
   topBar: {
     alignItems: 'center',
@@ -361,7 +371,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 8,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     gap: 8,
     padding: 20,
@@ -383,7 +393,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: '#b76432',
-    borderRadius: 8,
+    borderRadius: UI_PILL_RADIUS,
     marginTop: 4,
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -399,7 +409,7 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 8,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     gap: 10,
     padding: 18,
@@ -408,7 +418,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     aspectRatio: 1,
     backgroundColor: '#b76432',
-    borderRadius: 8,
+    borderRadius: UI_TOP_BUTTON_SIZE / 2,
     justifyContent: 'center',
     width: 50,
   },
@@ -418,7 +428,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     backgroundColor: '#fff7ec',
     borderColor: '#ead8c5',
-    borderRadius: 8,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     justifyContent: 'center',
     maxWidth: 320,
@@ -445,7 +455,7 @@ const styles = StyleSheet.create({
     color: '#5f554d',
     fontSize: 15,
     lineHeight: 22,
-    maxWidth: 720,
+    maxWidth: UI_PAGE_MAX_WIDTH - UI_PAGE_SIDE_PADDING * 2,
   },
   detailChipWrap: {
     flexDirection: 'row',
@@ -456,7 +466,7 @@ const styles = StyleSheet.create({
   detailChip: {
     alignItems: 'center',
     backgroundColor: '#f4eadf',
-    borderRadius: 8,
+    borderRadius: UI_PILL_RADIUS,
     flexDirection: 'row',
     gap: 6,
     minHeight: 32,
@@ -471,7 +481,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 8,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 12,
@@ -487,9 +497,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     aspectRatio: 1,
     backgroundColor: '#2f493e',
-    borderRadius: 8,
+    borderRadius: UI_TOP_BUTTON_SIZE / 2,
     justifyContent: 'center',
-    width: 44,
+    width: UI_TOP_BUTTON_SIZE,
   },
   cookingEntryCopy: {
     flex: 1,
@@ -509,7 +519,7 @@ const styles = StyleSheet.create({
   },
   disabledPill: {
     backgroundColor: '#ede5dc',
-    borderRadius: 8,
+    borderRadius: UI_PILL_RADIUS,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -521,7 +531,7 @@ const styles = StyleSheet.create({
   activePill: {
     alignItems: 'center',
     backgroundColor: '#e4eee8',
-    borderRadius: 8,
+    borderRadius: UI_PILL_RADIUS,
     flexDirection: 'row',
     gap: 2,
     paddingHorizontal: 10,
@@ -547,7 +557,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 8,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 12,
@@ -577,7 +587,7 @@ const styles = StyleSheet.create({
   },
   quantityPill: {
     backgroundColor: '#e8f0e8',
-    borderRadius: 8,
+    borderRadius: UI_PILL_RADIUS,
     maxWidth: 120,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -597,7 +607,7 @@ const styles = StyleSheet.create({
   toolTag: {
     alignItems: 'center',
     backgroundColor: '#e8f0e8',
-    borderRadius: 8,
+    borderRadius: UI_PILL_RADIUS,
     flexDirection: 'row',
     gap: 6,
     minHeight: 32,
@@ -611,7 +621,7 @@ const styles = StyleSheet.create({
   substitutionRow: {
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 8,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     padding: 12,
   },
@@ -633,7 +643,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     aspectRatio: 1,
     backgroundColor: '#293f37',
-    borderRadius: 8,
+    borderRadius: UI_TOP_BUTTON_SIZE / 2,
     justifyContent: 'center',
     width: 34,
   },
@@ -645,7 +655,7 @@ const styles = StyleSheet.create({
   stepBody: {
     backgroundColor: '#fffaf3',
     borderColor: '#eadfd2',
-    borderRadius: 8,
+    borderRadius: UI_CARD_RADIUS,
     borderWidth: 1,
     flex: 1,
     gap: 6,
@@ -670,7 +680,7 @@ const styles = StyleSheet.create({
   },
   stepMeta: {
     backgroundColor: '#f4eadf',
-    borderRadius: 8,
+    borderRadius: UI_PILL_RADIUS,
     color: '#5c4738',
     fontSize: 12,
     fontWeight: '700',

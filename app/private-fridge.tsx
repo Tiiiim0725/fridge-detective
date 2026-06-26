@@ -12,8 +12,16 @@ import {
 } from 'react-native'
 
 import { FloatingTopButton } from '@/components/ui/floating-top-button'
+import {
+  UI_CARD_RADIUS,
+  UI_CONTROL_HEIGHT,
+  UI_PAGE_MAX_WIDTH,
+  UI_PAGE_SIDE_PADDING,
+  UI_PAGE_SIDE_PADDING_COMPACT,
+  UI_TOP_BAR_SIDE_PADDING,
+  UI_TOP_BUTTON_SIZE,
+} from '@/components/ui/design-tokens'
 import { FridgeInventoryCard } from '@/components/fridge-inventory'
-import { COOKING_CONTROL_SIZE, COOKING_RADIUS } from '@/constants/cookingUi'
 import { getFridgeInventoryItems } from '@/services/fridgeService'
 import type {
   FridgeInventoryItem,
@@ -23,8 +31,8 @@ import type {
 
 type InventoryFilter = 'all' | 'priority' | 'comfortable' | 'unknown'
 
-const INVENTORY_RADIUS = COOKING_RADIUS
-const INVENTORY_CONTROL_SIZE = COOKING_CONTROL_SIZE
+const INVENTORY_RADIUS = UI_CARD_RADIUS
+const INVENTORY_CONTROL_SIZE = UI_CONTROL_HEIGHT
 
 const FILTER_OPTIONS: Array<{
   key: InventoryFilter
@@ -336,15 +344,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     minHeight: 76,
-    paddingHorizontal: 16,
+    paddingHorizontal: UI_TOP_BAR_SIDE_PADDING,
     paddingTop: 28,
   },
-  topButtonSlot: { height: 48, width: 48 },
+  topButtonSlot: { height: UI_TOP_BUTTON_SIZE, width: UI_TOP_BUTTON_SIZE },
   topBarTitle: { color: '#c2652a', flex: 1, fontSize: 20, fontWeight: '900', textAlign: 'center' },
-  container: { alignSelf: 'center', maxWidth: 430, paddingBottom: 50, width: '100%' },
-  hero: { paddingHorizontal: 20, paddingBottom: 18, paddingTop: 26 },
+  container: {
+    alignSelf: 'center',
+    maxWidth: UI_PAGE_MAX_WIDTH,
+    paddingBottom: 50,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING_COMPACT,
+    width: '100%',
+  },
+  hero: { paddingHorizontal: 0, paddingBottom: 18, paddingTop: 26 },
   eyebrow: { color: '#c2652a', fontSize: 12, fontWeight: '900', marginBottom: 7 },
-  title: { color: '#332e29', fontSize: 30, fontWeight: '900', lineHeight: 36 },
+  title: { color: '#332e29', fontSize: 28, fontWeight: '900', lineHeight: 34 },
   subtitle: { color: '#766c64', fontSize: 14, lineHeight: 21, marginTop: 7 },
   stateCard: { alignItems: 'center', gap: 10, padding: 34 },
   stateText: { color: '#766c64' },
@@ -353,7 +367,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff2ef',
     borderRadius: INVENTORY_RADIUS,
     gap: 10,
-    marginHorizontal: 22,
+    marginHorizontal: 0,
     padding: 20,
   },
   errorText: { color: '#8d4a40', lineHeight: 20, textAlign: 'center' },
@@ -364,7 +378,7 @@ const styles = StyleSheet.create({
     borderColor: '#e6ddd4',
     borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
-    marginHorizontal: 22,
+    marginHorizontal: 0,
     padding: 32,
   },
   emptyIcon: {
@@ -381,12 +395,12 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignItems: 'center',
     backgroundColor: '#c2652a',
-    borderRadius: 26,
+    borderRadius: UI_CONTROL_HEIGHT / 2,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
-    minHeight: 52,
-    paddingHorizontal: 24,
+    minHeight: UI_CONTROL_HEIGHT,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
   },
   primaryButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '900' },
   shortcutPanel: {
@@ -397,7 +411,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#f9f3eb',
     borderTopWidth: 1,
     marginBottom: 18,
-    marginHorizontal: 12,
+    marginHorizontal: 0,
     overflow: 'hidden',
     paddingBottom: 14,
     paddingTop: 14,
@@ -464,7 +478,7 @@ const styles = StyleSheet.create({
     borderColor: '#dfd1c1',
     borderRadius: INVENTORY_RADIUS,
     borderWidth: 2,
-    marginHorizontal: 12,
+    marginHorizontal: 0,
     overflow: 'hidden',
     paddingBottom: 14,
     paddingHorizontal: 10,
@@ -654,7 +668,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     flexDirection: 'row',
     gap: 8,
-    marginHorizontal: 22,
+    marginHorizontal: 0,
     marginTop: 18,
   },
   safetyNoteText: { color: '#766b63', flex: 1, fontSize: 12, lineHeight: 18 },
@@ -665,7 +679,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 9,
     justifyContent: 'center',
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     marginTop: 24,
     minHeight: INVENTORY_CONTROL_SIZE,
   },

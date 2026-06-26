@@ -3,9 +3,12 @@ import React from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import { HapticTab } from '@/components/haptic-tab'
+import { UI_PAGE_SIDE_PADDING } from '@/components/ui/design-tokens'
 import { IconSymbol } from '@/components/ui/icon-symbol'
 
 type TabSymbolName = Parameters<typeof IconSymbol>[0]['name']
+
+const NAV_ACTIVE_COLOR = '#c9652b'
 
 function NavIcon({
   focused,
@@ -54,12 +57,14 @@ export default function TabLayout() {
           borderTopWidth: 1,
           height: 84,
           paddingBottom: 12,
+          paddingHorizontal: UI_PAGE_SIDE_PADDING,
           paddingTop: 10,
           shadowColor: '#6c5542',
           shadowOffset: { width: 0, height: -8 },
           shadowOpacity: 0.08,
           shadowRadius: 18,
         },
+        tabBarItemStyle: styles.tabBarItem,
       }}
     >
       <Tabs.Screen
@@ -130,7 +135,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   activeGlowBottom: {
-    backgroundColor: '#c9ee67',
+    backgroundColor: NAV_ACTIVE_COLOR,
     borderRadius: 27,
     bottom: -8,
     height: 46,
@@ -140,7 +145,7 @@ const styles = StyleSheet.create({
     width: 50,
   },
   activeGlowTop: {
-    backgroundColor: '#f6c565',
+    backgroundColor: NAV_ACTIVE_COLOR,
     borderRadius: 27,
     height: 48,
     opacity: 0.92,
@@ -156,6 +161,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     width: 58,
+  },
+  tabBarItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 54,
   },
   centerCameraButton: {
     alignItems: 'center',
@@ -174,10 +184,12 @@ const styles = StyleSheet.create({
   },
   centerCameraItem: {
     alignItems: 'center',
+    flex: 1.28,
     justifyContent: 'center',
+    minWidth: 84,
   },
   centerGlowBottom: {
-    backgroundColor: '#c9ee67',
+    backgroundColor: NAV_ACTIVE_COLOR,
     borderRadius: 36,
     bottom: -9,
     height: 56,
@@ -187,7 +199,7 @@ const styles = StyleSheet.create({
     width: 58,
   },
   centerGlowTop: {
-    backgroundColor: '#f1b95d',
+    backgroundColor: NAV_ACTIVE_COLOR,
     borderRadius: 36,
     height: 58,
     opacity: 0.96,

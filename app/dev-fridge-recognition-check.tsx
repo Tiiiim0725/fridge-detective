@@ -15,6 +15,13 @@ import {
 } from 'react-native'
 
 import { getConversationalRecipeRecommendations } from '@/services/conversationalRecommendationService'
+import {
+  UI_PAGE_MAX_WIDTH,
+  UI_PAGE_SIDE_PADDING,
+  UI_PAGE_SIDE_PADDING_COMPACT,
+  UI_TOP_BAR_SIDE_PADDING,
+  UI_TOP_BUTTON_SIZE,
+} from '@/components/ui/design-tokens'
 import { FloatingTopButton, FLOATING_TOP_BUTTON_SIZE } from '@/components/ui/floating-top-button'
 import { COOKING_CONTROL_SIZE, COOKING_RADIUS } from '@/constants/cookingUi'
 import { runFridgeRecognition } from '@/services/fridgeRecognitionService'
@@ -1413,8 +1420,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#faf5ee',
   },
   container: {
+    alignSelf: 'center',
     gap: 18,
+    maxWidth: UI_PAGE_MAX_WIDTH,
     paddingBottom: 118,
+    width: '100%',
   },
   topBar: {
     alignItems: 'center',
@@ -1423,13 +1433,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     minHeight: 76,
-    paddingHorizontal: 22,
+    paddingHorizontal: UI_TOP_BAR_SIDE_PADDING,
     paddingTop: 28,
     backgroundColor: '#fff8f1',
   },
   topButtonSlot: {
-    height: 48,
-    width: 48,
+    height: UI_TOP_BUTTON_SIZE,
+    width: UI_TOP_BUTTON_SIZE,
   },
   brand: {
     color: '#b55f28',
@@ -1455,12 +1465,12 @@ const styles = StyleSheet.create({
   heroCopy: {
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 28,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
     paddingTop: 22,
   },
   title: {
     color: '#2d2a26',
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
     letterSpacing: 0,
     textAlign: 'center',
@@ -1469,17 +1479,17 @@ const styles = StyleSheet.create({
     color: '#70665d',
     fontSize: 17,
     lineHeight: 25,
-    maxWidth: 390,
+    maxWidth: UI_PAGE_MAX_WIDTH,
     textAlign: 'center',
   },
   scannerCard: {
-    paddingHorizontal: 22,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING_COMPACT,
   },
   scannerImageFrame: {
     borderColor: '#e1d7ce',
     borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
-    height: 430,
+    height: 390,
     overflow: 'hidden',
     backgroundColor: '#ded7c8',
     shadowColor: '#2d2119',
@@ -1625,7 +1635,7 @@ const styles = StyleSheet.create({
   },
   photoPanel: {
     gap: 10,
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     marginTop: 2,
     padding: 12,
     borderColor: '#e3dad0',
@@ -1793,7 +1803,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     padding: 12,
     backgroundColor: '#fff8e4',
   },
@@ -1810,7 +1820,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     padding: 12,
     backgroundColor: '#fff1ee',
   },
@@ -1825,7 +1835,7 @@ const styles = StyleSheet.create({
     borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     gap: 18,
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     padding: 20,
     backgroundColor: '#fff8f1',
     shadowColor: '#33251d',
@@ -2176,7 +2186,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 13,
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     padding: 16,
     backgroundColor: '#edf8f1',
   },
@@ -2204,7 +2214,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
     minHeight: FRIDGE_CONTROL_SIZE,
-    paddingHorizontal: 20,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
   },
   continueButtonText: {
     color: '#ffffff',
@@ -2222,7 +2232,7 @@ const styles = StyleSheet.create({
     borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     gap: 14,
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     padding: 18,
     backgroundColor: '#fffdf8',
     shadowColor: '#33251d',
@@ -2239,9 +2249,9 @@ const styles = StyleSheet.create({
   conversationIcon: {
     alignItems: 'center',
     borderRadius: 999,
-    height: 48,
+    height: UI_TOP_BUTTON_SIZE,
     justifyContent: 'center',
-    width: 48,
+    width: UI_TOP_BUTTON_SIZE,
     backgroundColor: '#c2652a',
   },
   conversationCopy: {
@@ -2277,8 +2287,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 18,
+    minHeight: FRIDGE_CONTROL_SIZE,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
     backgroundColor: '#1f5945',
   },
   conversationButtonPressed: {
@@ -2368,7 +2378,7 @@ const styles = StyleSheet.create({
     borderColor: '#e1d8cf',
     borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
-    marginHorizontal: 22,
+    marginHorizontal: UI_PAGE_SIDE_PADDING,
     backgroundColor: '#fffdf9',
   },
   debugHeader: {
@@ -2402,7 +2412,7 @@ const styles = StyleSheet.create({
     left: 0,
     minHeight: 92,
     paddingBottom: 14,
-    paddingHorizontal: 18,
+    paddingHorizontal: UI_PAGE_SIDE_PADDING,
     paddingTop: 10,
     position: 'absolute',
     right: 0,

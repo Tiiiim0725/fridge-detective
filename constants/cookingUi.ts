@@ -1,7 +1,9 @@
 import { Platform } from 'react-native'
 
-export const COOKING_CONTROL_SIZE = 52
-export const COOKING_RADIUS = COOKING_CONTROL_SIZE / 2
+import { UI_CARD_RADIUS, UI_CONTROL_HEIGHT } from '@/components/ui/design-tokens'
+
+export const COOKING_CONTROL_SIZE = UI_CONTROL_HEIGHT
+export const COOKING_RADIUS = UI_CARD_RADIUS
 
 export const COOKING_SHADOW = Platform.select({
   web: {
