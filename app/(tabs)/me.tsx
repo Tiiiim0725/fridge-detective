@@ -13,6 +13,7 @@ import {
 
 import { getFridgeInventoryItems } from '@/services/fridgeService'
 import { getOnboardingContext } from '@/services/profileService'
+import { COOKING_RADIUS } from '@/constants/cookingUi'
 import type { FridgeInventoryItem } from '@/types/fridge'
 import {
   COOK_TIME_PREFERENCE_OPTIONS,
@@ -24,6 +25,8 @@ type DashboardData = {
   context: OnboardingContext
   fridgeItems: FridgeInventoryItem[]
 }
+
+const ME_RADIUS = COOKING_RADIUS
 
 function cookTimeLabel(context: OnboardingContext): string {
   const key = context.preferences?.cookTimePreferenceKey
@@ -242,7 +245,7 @@ const styles = StyleSheet.create({
   loadingCard: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 18,
+    borderRadius: ME_RADIUS,
     gap: 10,
     marginHorizontal: 22,
     padding: 28,
@@ -252,7 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     backgroundColor: '#fff4f1',
     borderColor: '#e9c8c1',
-    borderRadius: 16,
+    borderRadius: ME_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
@@ -268,7 +271,7 @@ const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: '#ffffff',
     borderColor: '#e8ded5',
-    borderRadius: 22,
+    borderRadius: ME_RADIUS,
     borderWidth: 1,
     marginBottom: 16,
     marginHorizontal: 22,
@@ -277,7 +280,7 @@ const styles = StyleSheet.create({
   fridgeCard: {
     backgroundColor: '#fffdf9',
     borderColor: '#ded1c5',
-    borderRadius: 22,
+    borderRadius: ME_RADIUS,
     borderWidth: 1,
     marginHorizontal: 22,
     padding: 20,
@@ -303,7 +306,7 @@ const styles = StyleSheet.create({
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 20 },
   statItem: {
     backgroundColor: '#faf6f2',
-    borderRadius: 14,
+    borderRadius: ME_RADIUS,
     minWidth: '46%',
     padding: 13,
   },
@@ -313,7 +316,7 @@ const styles = StyleSheet.create({
   fridgeStat: {
     backgroundColor: '#fbf7f2',
     borderColor: '#e8ded5',
-    borderRadius: 8,
+    borderRadius: ME_RADIUS,
     borderWidth: 1,
     flex: 1,
     padding: 12,
@@ -324,7 +327,7 @@ const styles = StyleSheet.create({
   ingredientPill: {
     backgroundColor: '#fff0e5',
     borderColor: '#edc9ac',
-    borderRadius: 18,
+    borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,

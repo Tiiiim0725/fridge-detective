@@ -13,6 +13,7 @@ import {
 
 import { FloatingTopButton } from '@/components/ui/floating-top-button'
 import { FridgeInventoryCard } from '@/components/fridge-inventory'
+import { COOKING_CONTROL_SIZE, COOKING_RADIUS } from '@/constants/cookingUi'
 import { getFridgeInventoryItems } from '@/services/fridgeService'
 import type {
   FridgeInventoryItem,
@@ -21,6 +22,9 @@ import type {
 } from '@/types/fridge'
 
 type InventoryFilter = 'all' | 'priority' | 'comfortable' | 'unknown'
+
+const INVENTORY_RADIUS = COOKING_RADIUS
+const INVENTORY_CONTROL_SIZE = COOKING_CONTROL_SIZE
 
 const FILTER_OPTIONS: Array<{
   key: InventoryFilter
@@ -347,7 +351,7 @@ const styles = StyleSheet.create({
   errorCard: {
     alignItems: 'center',
     backgroundColor: '#fff2ef',
-    borderRadius: 18,
+    borderRadius: INVENTORY_RADIUS,
     gap: 10,
     marginHorizontal: 22,
     padding: 20,
@@ -358,7 +362,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderColor: '#e6ddd4',
-    borderRadius: 24,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     marginHorizontal: 22,
     padding: 32,
@@ -389,7 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3eadf',
     borderBottomColor: '#ded1c5',
     borderBottomWidth: 1,
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderTopColor: '#f9f3eb',
     borderTopWidth: 1,
     marginBottom: 18,
@@ -415,7 +419,7 @@ const styles = StyleSheet.create({
   shortcutCard: {
     backgroundColor: '#fffaf4',
     borderColor: '#ece2d8',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     minHeight: 106,
     padding: 12,
@@ -434,7 +438,7 @@ const styles = StyleSheet.create({
   },
   shortcutCountPill: {
     backgroundColor: '#e9e1d8',
-    borderRadius: 8,
+    borderRadius: 999,
     minWidth: 34,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -448,17 +452,17 @@ const styles = StyleSheet.create({
   scanMiniButton: {
     alignItems: 'center',
     backgroundColor: '#c2652a',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     flexDirection: 'row',
     gap: 6,
-    minHeight: 40,
+    minHeight: INVENTORY_CONTROL_SIZE,
     paddingHorizontal: 14,
   },
   scanMiniButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '900' },
   fridgeShell: {
     backgroundColor: '#fffaf1',
     borderColor: '#dfd1c1',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 2,
     marginHorizontal: 12,
     overflow: 'hidden',
@@ -504,7 +508,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 253, 249, 0.82)',
     borderColor: '#e4d5c5',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     borderBottomColor: '#e4d5c5',
     borderBottomWidth: 1,
@@ -520,7 +524,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff0e5',
     borderColor: '#edc9ac',
-    borderRadius: 8,
+    borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
@@ -532,7 +536,7 @@ const styles = StyleSheet.create({
   locationSection: {
     backgroundColor: '#fffdf8',
     borderColor: '#e7dacb',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
@@ -567,7 +571,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: '#fff7ec',
     borderColor: '#edcfb4',
-    borderRadius: 8,
+    borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 5,
@@ -581,7 +585,7 @@ const styles = StyleSheet.create({
   locationCountPill: {
     backgroundColor: '#ffffff',
     borderColor: '#e6d8ca',
-    borderRadius: 8,
+    borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -599,7 +603,7 @@ const styles = StyleSheet.create({
   shelfBackPanel: {
     backgroundColor: '#f5eadb',
     borderColor: '#efe0cf',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     bottom: 18,
     left: 12,
@@ -638,7 +642,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderColor: '#e4ddd5',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     gap: 8,
     marginTop: 16,
@@ -657,13 +661,13 @@ const styles = StyleSheet.create({
   updateButton: {
     alignItems: 'center',
     backgroundColor: '#c2652a',
-    borderRadius: 27,
+    borderRadius: INVENTORY_RADIUS,
     flexDirection: 'row',
     gap: 9,
     justifyContent: 'center',
     marginHorizontal: 22,
     marginTop: 24,
-    minHeight: 54,
+    minHeight: INVENTORY_CONTROL_SIZE,
   },
   updateButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '900' },
 })

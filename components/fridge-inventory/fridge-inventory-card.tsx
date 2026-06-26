@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 
+import { COOKING_RADIUS } from '@/constants/cookingUi'
 import type {
   FridgeInventoryItem,
   FridgeInventoryTimingStatus,
@@ -16,6 +17,7 @@ type Tone = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const INVENTORY_RADIUS = COOKING_RADIUS
 
 const STATUS_TONES: Record<FridgeInventoryTimingStatus, Tone> = {
   comfortable: {
@@ -228,7 +230,7 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   cardGlow: {
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     bottom: 18,
     left: 8,
     opacity: 0.7,
@@ -238,7 +240,7 @@ const styles = StyleSheet.create({
   },
   card: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     borderWidth: 1,
     minHeight: 184,
     overflow: 'hidden',
@@ -302,7 +304,7 @@ const styles = StyleSheet.create({
   },
   freshnessBadge: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     flex: 1,
     minHeight: 42,
     justifyContent: 'center',
@@ -321,7 +323,7 @@ const styles = StyleSheet.create({
   remainingBox: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: INVENTORY_RADIUS,
     flex: 1,
     minHeight: 42,
     justifyContent: 'center',

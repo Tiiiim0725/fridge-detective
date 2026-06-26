@@ -15,7 +15,8 @@ import {
 } from 'react-native'
 
 import { getConversationalRecipeRecommendations } from '@/services/conversationalRecommendationService'
-import { FloatingTopButton } from '@/components/ui/floating-top-button'
+import { FloatingTopButton, FLOATING_TOP_BUTTON_SIZE } from '@/components/ui/floating-top-button'
+import { COOKING_CONTROL_SIZE, COOKING_RADIUS } from '@/constants/cookingUi'
 import { runFridgeRecognition } from '@/services/fridgeRecognitionService'
 import {
   confirmFridgeScanItems,
@@ -50,6 +51,10 @@ type ConversationalRecommendStatus = 'idle' | 'loading' | 'success' | 'fallback'
 type InventoryTimingModeByItemId = Record<string, FridgeInventoryTimingMode>
 
 export type FridgeRecognitionFlowMode = 'formal' | 'dev'
+
+const FRIDGE_RADIUS = COOKING_RADIUS
+const FRIDGE_CONTROL_SIZE = COOKING_CONTROL_SIZE
+const FRIDGE_THUMBNAIL_SIZE = FLOATING_TOP_BUTTON_SIZE
 
 export type FridgeRecognitionFlowProps = {
   mode: FridgeRecognitionFlowMode
@@ -181,14 +186,6 @@ function iconForStatus(status: LocalPhotoStatus): IoniconName {
   if (status === 'done') return 'checkmark-circle-outline'
   if (status === 'error') return 'alert-circle-outline'
   return 'image-outline'
-}
-
-function labelForStatus(status: LocalPhotoStatus): string {
-  if (status === 'uploading') return '上传中'
-  if (status === 'recognizing') return '识别中'
-  if (status === 'done') return '已识别'
-  if (status === 'error') return '失败'
-  return '待识别'
 }
 
 function iconForItemName(name: string): string {
@@ -835,9 +832,6 @@ export function FridgeRecognitionFlow({
             <View style={styles.emptyPhotos}>
               <Ionicons name="images-outline" size={26} color="#8f8177" />
               <Text style={styles.emptyTitle}>先拍一张冰箱照片</Text>
-              <Text style={styles.emptyText}>
-                每张照片会变成缩略图，你可以删除或取消参与识别。
-              </Text>
             </View>
           ) : (
             <ScrollView
@@ -848,32 +842,29 @@ export function FridgeRecognitionFlow({
               {photos.map((photo) => (
                 <View
                   key={photo.id}
-                  style={[
-                    styles.photoCard,
-                    photo.selected && styles.photoCardSelected,
-                    photo.status === 'error' && styles.photoCardError,
-                  ]}
+                  style={styles.photoCard}
                 >
-                  <Pressable onPress={() => togglePhoto(photo.id)} style={styles.photoPressable}>
+                  <Pressable
+                    onPress={() => togglePhoto(photo.id)}
+                    style={[
+                      styles.photoPressable,
+                      photo.selected && styles.photoCardSelected,
+                      photo.status === 'error' && styles.photoCardError,
+                    ]}
+                  >
                     <Image source={{ uri: photo.localUri }} style={styles.thumbnail} />
                     <View style={styles.photoStatusPill}>
                       <Ionicons
                         name={iconForStatus(photo.status)}
-                        size={13}
+                        size={12}
                         color={photo.status === 'error' ? '#a33a2d' : '#4c4037'}
                       />
-                      <Text style={styles.photoStatusText}>{labelForStatus(photo.status)}</Text>
                     </View>
                     {!photo.selected ? <View style={styles.photoDim} /> : null}
                   </Pressable>
-                  <View style={styles.photoControls}>
-                    <Text style={styles.photoZoneText} numberOfLines={1}>
-                      {photo.zoneTitle}
-                    </Text>
-                    <Pressable onPress={() => removePhoto(photo.id)} style={styles.smallIconButton}>
-                      <Ionicons name="close-outline" size={18} color="#9b3d33" />
-                    </Pressable>
-                  </View>
+                  <Pressable onPress={() => removePhoto(photo.id)} style={styles.photoRemoveButton}>
+                    <Ionicons name="close-outline" size={13} color="#9b3d33" />
+                  </Pressable>
                 </View>
               ))}
             </ScrollView>
@@ -1486,7 +1477,7 @@ const styles = StyleSheet.create({
   },
   scannerImageFrame: {
     borderColor: '#e1d7ce',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     height: 430,
     overflow: 'hidden',
@@ -1516,7 +1507,7 @@ const styles = StyleSheet.create({
   },
   placeholderCrate: {
     borderColor: 'rgba(255,255,255,0.26)',
-    borderRadius: 8,
+    borderRadius: Math.max(14, FRIDGE_RADIUS - 10),
     borderWidth: 1,
     flex: 1,
   },
@@ -1569,7 +1560,7 @@ const styles = StyleSheet.create({
   },
   guideBubble: {
     borderColor: 'rgba(194, 101, 42, 0.58)',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     left: 24,
     maxWidth: 240,
@@ -1604,9 +1595,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.88)',
     borderRadius: 999,
     borderWidth: 1,
-    height: 70,
+    height: FRIDGE_THUMBNAIL_SIZE,
     justifyContent: 'center',
-    width: 70,
+    width: FRIDGE_THUMBNAIL_SIZE,
     backgroundColor: 'rgba(250, 245, 238, 0.92)',
   },
   roundToolButtonPressed: {
@@ -1633,12 +1624,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   photoPanel: {
-    gap: 14,
+    gap: 10,
     marginHorizontal: 22,
     marginTop: 2,
-    padding: 16,
+    padding: 12,
     borderColor: '#e3dad0',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     backgroundColor: '#fff9f3',
   },
@@ -1667,7 +1658,7 @@ const styles = StyleSheet.create({
   emptyPhotos: {
     alignItems: 'center',
     borderColor: '#ded5cc',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderStyle: 'dashed',
     borderWidth: 1,
     gap: 7,
@@ -1679,23 +1670,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
   },
-  emptyText: {
-    color: '#766d65',
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
   photoStrip: {
-    gap: 12,
+    gap: 10,
     paddingRight: 18,
+    paddingVertical: 3,
   },
   photoCard: {
-    borderColor: '#ded5cc',
-    borderRadius: 8,
-    borderWidth: 1,
-    overflow: 'hidden',
-    width: 142,
-    backgroundColor: '#ffffff',
+    height: FRIDGE_THUMBNAIL_SIZE,
+    position: 'relative',
+    width: FRIDGE_THUMBNAIL_SIZE,
   },
   photoCardSelected: {
     borderColor: '#1f5945',
@@ -1705,7 +1688,13 @@ const styles = StyleSheet.create({
     borderColor: '#c94b3e',
   },
   photoPressable: {
-    height: 116,
+    borderColor: '#ded5cc',
+    borderRadius: FRIDGE_THUMBNAIL_SIZE / 2,
+    borderWidth: 1,
+    height: FRIDGE_THUMBNAIL_SIZE,
+    overflow: 'hidden',
+    width: FRIDGE_THUMBNAIL_SIZE,
+    backgroundColor: '#ffffff',
   },
   thumbnail: {
     height: '100%',
@@ -1714,51 +1703,38 @@ const styles = StyleSheet.create({
   },
   photoStatusPill: {
     alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.8)',
     borderRadius: 999,
-    bottom: 8,
-    flexDirection: 'row',
-    gap: 4,
-    left: 8,
-    minHeight: 25,
-    paddingHorizontal: 8,
+    borderWidth: 1,
+    bottom: 3,
+    height: 19,
+    justifyContent: 'center',
     position: 'absolute',
-    right: 8,
+    right: 3,
+    width: 19,
     backgroundColor: 'rgba(255, 248, 241, 0.92)',
-  },
-  photoStatusText: {
-    color: '#4c4037',
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '900',
   },
   photoDim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(48, 40, 33, 0.48)',
   },
-  photoControls: {
+  photoRemoveButton: {
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'space-between',
-    minHeight: 38,
-    paddingHorizontal: 8,
-  },
-  photoZoneText: {
-    color: '#4d453e',
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  smallIconButton: {
-    alignItems: 'center',
-    height: 30,
+    borderColor: '#fffaf3',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 19,
     justifyContent: 'center',
-    width: 30,
+    position: 'absolute',
+    right: -4,
+    top: -4,
+    width: 19,
+    backgroundColor: '#fff8f1',
   },
   urlFallbackPanel: {
     alignItems: 'center',
     borderColor: '#e4dbd2',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1781,12 +1757,12 @@ const styles = StyleSheet.create({
   },
   urlInput: {
     borderColor: '#d5cbc2',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     color: '#302a25',
     flex: 1,
     fontSize: 14,
-    minHeight: 42,
+    minHeight: FRIDGE_CONTROL_SIZE,
     minWidth: 200,
     paddingHorizontal: 11,
     backgroundColor: '#ffffff',
@@ -1794,11 +1770,11 @@ const styles = StyleSheet.create({
   urlButton: {
     alignItems: 'center',
     borderColor: '#bdd4c8',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    minHeight: 42,
+    minHeight: FRIDGE_CONTROL_SIZE,
     paddingHorizontal: 13,
     backgroundColor: '#eef7f1',
   },
@@ -1813,7 +1789,7 @@ const styles = StyleSheet.create({
   noticePanel: {
     alignItems: 'center',
     borderColor: '#edd49a',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
@@ -1830,7 +1806,7 @@ const styles = StyleSheet.create({
   errorPanel: {
     alignItems: 'center',
     borderColor: '#efc5bd',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
@@ -1846,7 +1822,7 @@ const styles = StyleSheet.create({
   },
   resultsPanel: {
     borderColor: '#e1d7ce',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     gap: 18,
     marginHorizontal: 22,
@@ -1895,7 +1871,7 @@ const styles = StyleSheet.create({
   },
   detectedCard: {
     borderColor: '#ddd4cb',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     gap: 8,
     minHeight: 196,
@@ -1918,7 +1894,7 @@ const styles = StyleSheet.create({
   },
   pantryCandidatePanel: {
     borderColor: '#ead2b8',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     gap: 14,
     padding: 14,
@@ -2012,7 +1988,7 @@ const styles = StyleSheet.create({
   },
   inventoryTimingPanel: {
     borderColor: '#d8eadf',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     gap: 7,
     marginTop: 2,
@@ -2030,12 +2006,12 @@ const styles = StyleSheet.create({
   inventoryTimingOption: {
     alignItems: 'center',
     borderColor: '#e6ded5',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 7,
     marginTop: 2,
-    minHeight: 42,
+    minHeight: FRIDGE_CONTROL_SIZE,
     paddingHorizontal: 8,
     paddingVertical: 7,
     backgroundColor: '#ffffff',
@@ -2050,7 +2026,7 @@ const styles = StyleSheet.create({
   },
   inventoryTimingCollapsed: {
     borderColor: '#e4dad1',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     marginTop: 2,
     paddingHorizontal: 9,
@@ -2140,22 +2116,22 @@ const styles = StyleSheet.create({
   },
   manualInput: {
     borderColor: '#ded5cc',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     color: '#302a25',
     fontSize: 13,
-    minHeight: 38,
+    minHeight: FRIDGE_CONTROL_SIZE,
     paddingHorizontal: 10,
     width: '100%',
     backgroundColor: '#ffffff',
   },
   manualAddButton: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     flexDirection: 'row',
     gap: 5,
     justifyContent: 'center',
-    minHeight: 38,
+    minHeight: FRIDGE_CONTROL_SIZE,
     paddingHorizontal: 10,
     width: '100%',
     backgroundColor: '#1f5945',
@@ -2171,11 +2147,11 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     flexDirection: 'row',
     gap: 9,
     justifyContent: 'center',
-    minHeight: 58,
+    minHeight: FRIDGE_CONTROL_SIZE,
     paddingHorizontal: 18,
     backgroundColor: '#c2652a',
     shadowColor: '#9d481d',
@@ -2196,7 +2172,7 @@ const styles = StyleSheet.create({
   successPanel: {
     alignItems: 'center',
     borderColor: '#bdd8c8',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 13,
@@ -2222,12 +2198,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: '#c2652a',
-    borderRadius: 24,
+    borderRadius: FRIDGE_RADIUS,
     flexDirection: 'row',
     gap: 7,
     justifyContent: 'center',
     marginTop: 12,
-    minHeight: 46,
+    minHeight: FRIDGE_CONTROL_SIZE,
     paddingHorizontal: 20,
   },
   continueButtonText: {
@@ -2243,7 +2219,7 @@ const styles = StyleSheet.create({
   },
   conversationPanel: {
     borderColor: '#e1d7ce',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     gap: 14,
     marginHorizontal: 22,
@@ -2284,7 +2260,7 @@ const styles = StyleSheet.create({
   },
   conversationInput: {
     borderColor: '#ded5cc',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     color: '#302a25',
     fontSize: 15,
@@ -2317,7 +2293,7 @@ const styles = StyleSheet.create({
   conversationNotice: {
     alignItems: 'center',
     borderColor: '#efd9c4',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
@@ -2345,7 +2321,7 @@ const styles = StyleSheet.create({
   conversationRecipeCard: {
     alignItems: 'center',
     borderColor: '#e5dbd0',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 12,
@@ -2390,7 +2366,7 @@ const styles = StyleSheet.create({
   },
   debugPanel: {
     borderColor: '#e1d8cf',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     borderWidth: 1,
     marginHorizontal: 22,
     backgroundColor: '#fffdf9',
@@ -2434,7 +2410,7 @@ const styles = StyleSheet.create({
   },
   bottomNavItem: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     gap: 4,
     minHeight: 66,
     minWidth: 74,
@@ -2460,7 +2436,7 @@ const styles = StyleSheet.create({
   },
   loadingBox: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: FRIDGE_RADIUS,
     gap: 10,
     maxWidth: 320,
     padding: 24,
