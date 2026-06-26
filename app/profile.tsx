@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router'
+import { type Href, useRouter } from 'expo-router'
 
 import { UserProfileFlow } from '@/app/dev-user-profile-check'
 import { useAppSession } from '@/providers/AppSessionProvider'
@@ -13,6 +13,7 @@ export default function ProfileScreen() {
       onBack={() => router.back()}
       onSaved={async () => {
         await refreshProfile()
+        router.replace('/me' as Href)
       }}
     />
   )
