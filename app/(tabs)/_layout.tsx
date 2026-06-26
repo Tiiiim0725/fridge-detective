@@ -8,7 +8,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol'
 
 type TabSymbolName = Parameters<typeof IconSymbol>[0]['name']
 
-const NAV_ACTIVE_COLOR = '#c9652b'
+const NAV_ACTIVE_COLOR = '#dfa066'
 
 function NavIcon({
   focused,
@@ -25,8 +25,6 @@ function NavIcon({
 
   return (
     <View style={styles.activeIconShell}>
-      <View style={styles.activeGlowTop} />
-      <View style={styles.activeGlowBottom} />
       <IconSymbol color="#111714" name={name} size={size + 1} />
     </View>
   )
@@ -35,8 +33,6 @@ function NavIcon({
 function CameraActionIcon() {
   return (
     <View style={styles.centerCameraButton}>
-      <View style={styles.centerGlowTop} />
-      <View style={styles.centerGlowBottom} />
       <IconSymbol size={30} name="camera.fill" color="#111714" />
     </View>
   )
@@ -134,32 +130,12 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  activeGlowBottom: {
-    backgroundColor: NAV_ACTIVE_COLOR,
-    borderRadius: 27,
-    bottom: -8,
-    height: 46,
-    left: -4,
-    opacity: 0.9,
-    position: 'absolute',
-    width: 50,
-  },
-  activeGlowTop: {
-    backgroundColor: NAV_ACTIVE_COLOR,
-    borderRadius: 27,
-    height: 48,
-    opacity: 0.92,
-    position: 'absolute',
-    right: -6,
-    top: -7,
-    width: 50,
-  },
   activeIconShell: {
     alignItems: 'center',
+    backgroundColor: NAV_ACTIVE_COLOR,
     borderRadius: 31,
     height: 58,
     justifyContent: 'center',
-    overflow: 'hidden',
     width: 58,
   },
   tabBarItem: {
@@ -169,13 +145,13 @@ const styles = StyleSheet.create({
   },
   centerCameraButton: {
     alignItems: 'center',
+    backgroundColor: NAV_ACTIVE_COLOR,
     borderColor: '#fffaf5',
     borderRadius: 36,
     borderWidth: 5,
     height: 72,
     justifyContent: 'center',
     marginTop: -24,
-    overflow: 'hidden',
     shadowColor: '#163f34',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.22,
@@ -187,25 +163,5 @@ const styles = StyleSheet.create({
     flex: 1.28,
     justifyContent: 'center',
     minWidth: 84,
-  },
-  centerGlowBottom: {
-    backgroundColor: NAV_ACTIVE_COLOR,
-    borderRadius: 36,
-    bottom: -9,
-    height: 56,
-    left: -7,
-    opacity: 0.95,
-    position: 'absolute',
-    width: 58,
-  },
-  centerGlowTop: {
-    backgroundColor: NAV_ACTIVE_COLOR,
-    borderRadius: 36,
-    height: 58,
-    opacity: 0.96,
-    position: 'absolute',
-    right: -8,
-    top: -8,
-    width: 60,
   },
 })
