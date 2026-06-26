@@ -8,7 +8,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol'
 
 type TabSymbolName = Parameters<typeof IconSymbol>[0]['name']
 
-const NAV_ACTIVE_COLOR = '#dfa066'
+const NAV_ACTIVE_COLOR = '#c96b2a'
 
 function NavIcon({
   focused,
