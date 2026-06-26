@@ -12,7 +12,14 @@ type SessionRow = {
   completed_at: string | null
   created_at: string
   updated_at: string
-  recipes?: { recipe_key?: string } | null
+  recipes?: {
+    recipe_key?: string
+    zh_name?: string | null
+  } | null
+}
+
+export type LatestCookingSession = CookingSession & {
+  recipeZhName: string | null
 }
 
 function toServiceError(error: unknown, fallbackMessage: string): Error {
@@ -94,6 +101,48 @@ export async function getOrCreateCookingSession(recipeKey: string): Promise<Cook
 
   if (error) throw toServiceError(error, 'Failed to create cooking session')
   return mapSession(data as SessionRow, recipeKey)
+}
+
+export async function getLatestOpenCookingSession(): Promise<LatestCookingSession | null> {
+  const sessions = await getRecentOpenCookingSessions(1)
+  return sessions[0] ?? null
+}
+
+export async function getRecentOpenCookingSessions(limit = 8): Promise<LatestCookingSession[]> {
+  const authUser = await ensureAuthUser()
+
+  const { data, error } = await supabase
+    .from('cooking_sessions')
+    .select('*, recipes(recipe_key, zh_name)')
+    .eq('user_id', authUser.userId)
+    .in('status', ['active', 'paused'])
+    .order('updated_at', { ascending: false })
+    .limit(Math.max(limit * 3, limit))
+
+  if (error) throw toServiceError(error, 'Failed to query recent cooking sessions')
+
+  const seenRecipeKeys = new Set<string>()
+  const sessions: LatestCookingSession[] = []
+
+  for (const row of (data ?? []) as SessionRow[]) {
+    const mapped = mapSession(row)
+
+    if (!mapped.recipeKey || seenRecipeKeys.has(mapped.recipeKey)) {
+      continue
+    }
+
+    seenRecipeKeys.add(mapped.recipeKey)
+    sessions.push({
+      ...mapped,
+      recipeZhName: row.recipes?.zh_name ?? null,
+    })
+
+    if (sessions.length >= limit) {
+      break
+    }
+  }
+
+  return sessions
 }
 
 export async function updateCookingSession(
